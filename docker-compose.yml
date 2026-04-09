@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: farm_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: farmadmin
+      POSTGRES_PASSWORD: farm123
+      POSTGRES_DB: elegoo_farm
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U farmadmin -d elegoo_farm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: farm_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://farmadmin:farm123@postgres:5432/elegoo_farm
+      DEV_MODE: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - file_storage:/app/storage
+
+volumes:
+  file_storage:
