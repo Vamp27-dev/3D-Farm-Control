@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket
-import asyncio
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 
 from app.core.database import Base, engine, SessionLocal
 
@@ -26,21 +26,24 @@ from app.models.printer import Printer
 # ==========================
 Base.metadata.create_all(bind=engine)
 
+
 # ==========================
 # Create FastAPI app
 # ==========================
 app = FastAPI()
 
+
+# ==========================
+# ✅ CORS (FIXED PROPERLY)
+# ==========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173"
-    ],
+    allow_origins=["*"],  # later restrict to your frontend IP
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ==========================
 # Include routers
@@ -52,10 +55,22 @@ app.include_router(file_router.router)
 app.include_router(analytics_router.router)
 app.include_router(auth_router.router)
 
+
 # ==========================
-# Start Poller Thread
+# ✅ START POLLER SAFELY
 # ==========================
-start_poller()
+@app.on_event("startup")
+def startup_event():
+    print("Starting background poller...")
+    start_poller()
+
+
+# ==========================
+# Root test
+# ==========================
+@app.get("/")
+def root():
+    return {"message": "Farm Backend Running 🚀"}
 
 
 # ==========================
