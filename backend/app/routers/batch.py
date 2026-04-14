@@ -86,13 +86,50 @@ def create_batch(batch: BatchCreate, db: Session = Depends(get_db)):
 
 
 # ============================
-# LIST BATCHES
+# LIST BATCHES (🔥 UPDATED)
 # ============================
 
 @router.get("/", dependencies=[Depends(require_role(["admin", "operator", "viewer"]))])
 def list_batches(db: Session = Depends(get_db)):
+
     batches = db.query(Batch).all()
-    return batches
+
+    result = []
+
+    for batch in batches:
+
+        # 🔥 get file name
+        file = db.query(File).filter(File.id == batch.file_id).first()
+        file_name = file.original_name if file else "Unknown"
+
+        # 🔥 determine status
+        jobs = db.query(BatchPrinter).filter(
+            BatchPrinter.batch_id == batch.id
+        ).all()
+
+        if not jobs:
+            status = "empty"
+        else:
+            statuses = [j.status for j in jobs]
+
+            if all(s == "completed" for s in statuses):
+                status = "completed"
+            elif any(s == "printing" for s in statuses):
+                status = "printing"
+            elif any(s in ["queued", "waiting_confirmation"] for s in statuses):
+                status = "queued"
+            else:
+                status = "unknown"
+
+        result.append({
+            "id": batch.id,
+            "name": f"Batch {batch.id}",
+            "file_name": file_name,
+            "status": status,
+            "created_at": batch.created_at
+        })
+
+    return result
 
 
 # ============================
@@ -109,17 +146,14 @@ def delete_batch(batch_id: int, db: Session = Depends(get_db)):
 
     try:
 
-        # delete job history first
         db.query(JobHistory).filter(
             JobHistory.batch_id == batch_id
         ).delete(synchronize_session=False)
 
-        # delete batch_printers
         db.query(BatchPrinter).filter(
             BatchPrinter.batch_id == batch_id
         ).delete(synchronize_session=False)
 
-        # delete batch
         db.delete(batch)
 
         db.commit()
@@ -127,7 +161,6 @@ def delete_batch(batch_id: int, db: Session = Depends(get_db)):
         return {"message": "Batch deleted successfully"}
 
     except Exception as e:
-
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
