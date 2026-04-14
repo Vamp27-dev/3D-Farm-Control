@@ -363,11 +363,40 @@ return (
               </button>
 
               <button
-                onClick={() => deleteFile(file.id)}
-                className="bg-red-600 px-3 py-1 rounded text-xs"
-              >
-                Delete
-              </button>
+                onClick={async () => {
+                  const confirmDelete = confirm("Delete this file?")
+                  if (!confirmDelete) return
+
+                  try {
+                    const token = localStorage.getItem("token")
+
+                    const res = await fetch(`http://192.168.68.151:8000/files/${file.id}`, {
+                      method: "DELETE",
+                     headers: {
+                      Authorization: `Bearer ${token}`
+                    }
+                  })
+
+                  if (!res.ok) {
+                    const data = await res.json()
+                    alert(data.detail || "Delete failed")
+                    return
+                  }
+
+                  alert("File deleted 🗑️")
+
+                  // 🔥 IMPORTANT: refresh list
+                  window.location.reload()
+
+                } catch (err) {
+                  console.error(err)
+                  alert("Delete failed")
+                }
+              }}
+              className="bg-red-600 px-2 py-1 rounded text-xs hover:bg-red-500"
+            >
+              Delete
+            </button>
 
             </div>
 

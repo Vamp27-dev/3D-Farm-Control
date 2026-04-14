@@ -1,4 +1,5 @@
 import httpx
+import os 
 
 
 # ==========================
@@ -67,20 +68,58 @@ async def get_bambu_status(ip: str):
 # ==========================
 # File Upload To Moonraker
 #    
-async def upload_file_to_printer(ip: str, file_path: str):
+async def upload_file_to_printer(printer_ip: str, file_path: str):
+    url = f"http://{printer_ip}/server/files/upload"
+
+    filename = os.path.basename(file_path)
+
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            with open(file_path, "rb") as f:
-                files = {"file": (file_path.split("/")[-1], f)}
-                res = await client.post(
-                    f"http://{ip}/server/files/upload",
-                    files=files
-                )
+        with open(file_path, "rb") as f:
+            files = {
+                "file": (filename, f, "application/octet-stream")
+            }
 
-        data = res.json()
+            data = {
+                "root": "gcodes"   # 🔥 VERY IMPORTANT
+            }
 
-        return data["result"]["item"]["path"]
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, files=files, data=data)
+
+        print("UPLOAD STATUS:", response.status_code)
+        print("UPLOAD RESPONSE:", response.text)
+
+        if response.status_code not in [200, 201]:
+            raise Exception("Upload failed")
+
+        return filename
 
     except Exception as e:
-        print("Upload error:", e)
-        return None
+        print("UPLOAD ERROR REAL:", str(e))
+        raise Exception("Upload failed")
+
+
+# ==========================
+# Start Print with Moonraker
+#     
+
+async def start_print(printer_ip: str, filename: str):
+    url = f"http://{printer_ip}/printer/print/start"
+
+    try:
+        payload = {
+            "filename": filename   # ❗ NO gcodes/ here
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload)
+
+        print("PRINT STATUS:", response.status_code)
+        print("PRINT RESPONSE:", response.text)
+
+        if response.status_code != 200:
+            raise Exception(response.text)
+
+    except Exception as e:
+        print("START PRINT ERROR:", str(e))
+        raise Exception("Start print failed")

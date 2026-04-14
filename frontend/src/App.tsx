@@ -5,9 +5,9 @@ import AddPrinter from "./AddPrinter"
 import Login from "./Login"
 import ProtectedRoute from "./ProtectedRoute"
 import { getUserRole } from "./utils/auth"
+import Batches from "./Batches"
 
 const API_BASE = "http://192.168.68.151:8000"
-const WS_BASE = "ws://192.168.68.151:8000"
 
 const apiFetch = async (url: string, options: any = {}) => {
   const token = localStorage.getItem("token")
@@ -85,6 +85,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/batches"
+        element={
+          <ProtectedRoute>
+            <Batches />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   )
 }
@@ -101,7 +110,7 @@ function Dashboard() {
     printers.find(p => p.id === selectedPrinterId) || null
 
   // ======================
-  // 🔥 LOAD PRINTERS (IMPORTANT FIX)
+  // LOAD PRINTERS
   // ======================
   useEffect(() => {
     const loadPrinters = async () => {
@@ -188,13 +197,24 @@ function Dashboard() {
   }, [printers])
 
   // ======================
-  // Actions
+  // 🚀 START PRINT (NEW)
   // ======================
   const startNext = async () => {
-    if (!selectedPrinter) return
-    await apiFetch(`/printers/${selectedPrinter.id}/start_next`, {
-      method: "POST"
-    })
+    if (!selectedPrinter) {
+      alert("Select a printer first")
+      return
+    }
+
+    try {
+      await apiFetch(`/printers/${selectedPrinter.id}/start_next`, {
+        method: "POST"
+      })
+
+      alert("Print started 🚀")
+    } catch (err) {
+      console.error(err)
+      alert("Failed to start print")
+    }
   }
 
   const cancelJob = async (jobId: number) => {
@@ -217,13 +237,35 @@ function Dashboard() {
   }
 
   const deletePrinter = async (id: number) => {
-    const confirmDelete = confirm("Delete this printer?")
-    if (!confirmDelete) return
+  const confirmDelete = window.confirm("Delete this printer?")
+  if (!confirmDelete) return
 
-    await apiFetch(`/printers/${id}`, {
-      method: "DELETE"
+  try {
+    const token = localStorage.getItem("token")
+
+    const res = await fetch(`${API_BASE}/printers/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
     })
+
+    if (!res.ok) {
+      const data = await res.json()
+      alert(data.detail || "Delete failed")
+      return
+    }
+
+    alert("Printer deleted ✅")
+
+    // 🔥 reload printers
+    loadPrinters()
+
+  } catch (err) {
+    console.error(err)
+    alert("Delete failed")
   }
+}
 
   const total = printers.length
   const printing = printers.filter(p => p.status === "printing").length
@@ -235,6 +277,7 @@ function Dashboard() {
       <div className="flex gap-6 mb-6 text-sm items-center">
         <Link to="/" className="text-blue-400">Dashboard</Link>
         <Link to="/files" className="text-blue-400">Files</Link>
+        <Link to="/batches" className="text-blue-400">Batches</Link>
 
         {role === "admin" && (
           <Link to="/add-printer" className="bg-green-600 px-4 py-2 rounded">
@@ -264,20 +307,47 @@ function Dashboard() {
         <StatCard label="Queued" value={queuedCount} color="bg-yellow-600" />
       </div>
 
+      {/* 🔥 START BUTTON */}
+      {selectedPrinter && (
+        <div className="mb-6">
+          <button
+            onClick={startNext}
+            className="bg-green-600 px-4 py-2 rounded hover:bg-green-500"
+          >
+            Start Print on {selectedPrinter.name}
+          </button>
+        </div>
+      )}
+
       {/* Printer Grid */}
       <div className="grid grid-cols-4 gap-5">
         {printers.map(printer => (
           <div
             key={printer.id}
-            onClick={() => setSelectedPrinterId(printer.id)}
-            className="bg-slate-800 rounded-xl p-5 cursor-pointer hover:bg-slate-700"
-          >
-            <div className="flex justify-between mb-3">
-              <h2>{printer.name}</h2>
-              <StatusBadge status={printer.status} />
-            </div>
+  className="bg-slate-800 rounded-xl p-5 hover:bg-slate-700"
+>
+  <div
+    onClick={() => setSelectedPrinterId(printer.id)}
+    className="cursor-pointer"
+  >
+    <div className="flex justify-between mb-3">
+      <h2>{printer.name}</h2>
+      <StatusBadge status={printer.status} />
+    </div>
 
-            <p className="text-sm">{printer.current_file || "Ready"}</p>
+    <p className="text-sm">{printer.current_file || "Ready"}</p>
+  </div>
+
+  {/* 🔥 DELETE BUTTON */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation()
+      deletePrinter(printer.id)
+    }}
+    className="mt-3 bg-red-600 px-3 py-1 rounded text-sm hover:bg-red-500"
+  >
+    Delete
+  </button>
           </div>
         ))}
       </div>

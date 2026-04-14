@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
-import httpx
 
 from app.core.database import SessionLocal
 from app.models.printer import Printer
@@ -16,7 +15,8 @@ from app.schemas.printer import PrinterCreate, PrinterResponse
 from app.services.printer_service import (
     get_klipper_status,
     get_bambu_status,
-    upload_file_to_printer
+    upload_file_to_printer,
+    start_print   # 🔥 ADDED
 )
 
 router = APIRouter(prefix="/printers", tags=["Printers"])
@@ -80,11 +80,7 @@ async def list_printers(db: Session = Depends(get_db)):
 
             raw_state = status.get("state", "offline")
 
-            # 🔥 FIX STATE
-            if raw_state == "standby":
-                state = "idle"
-            else:
-                state = raw_state
+            state = "idle" if raw_state == "standby" else raw_state
 
             progress = status.get("progress", 0)
             filename = status.get("filename", None)
@@ -136,7 +132,7 @@ def assign_tag_to_printer(printer_id: int, tag_id: int, db: Session = Depends(ge
 
 
 # ==============================
-# START NEXT JOB (🔥 REAL PRINT)
+# START NEXT JOB (🔥 FIXED)
 # ==============================
 
 @router.post("/{printer_id}/start_next")
@@ -160,46 +156,33 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
 
     batch = db.query(Batch).filter(Batch.id == next_job.batch_id).first()
     file = db.query(File).filter(File.id == batch.file_id).first()
-    file_path = f"/app/storage/{file.stored_name}"
-    print("FILE PATH:", file_path)
 
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
 
-    # 🔥 STEP 1: Upload file to printer
+    # 🔥 FIXED PATH
+    file_path = f"/app/storage/{file.stored_name}"
+    print("FILE PATH:", file_path)
 
-    import os
-
-async def upload_file_to_printer(printer_ip: str, file_path: str):
     try:
-        url = f"http://{printer_ip}/server/files/upload"
+        # 🔥 STEP 1: Upload
+        uploaded_filename = await upload_file_to_printer(
+            printer.ip_address,
+            file_path
+        )
 
-        filename = os.path.basename(file_path)
+        print("UPLOAD DONE:", uploaded_filename)
 
-        with open(file_path, "rb") as f:
-            files = {
-                "file": (filename, f, "application/octet-stream")
-            }
+        # 🔥 STEP 2: Start Print
+        await start_print(printer.ip_address, uploaded_filename)
 
-            data = {
-                "root": "gcodes"   # 🔥 VERY IMPORTANT (Moonraker requirement)
-            }
-
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(url, files=files, data=data)
-
-        print("UPLOAD RESPONSE:", response.text)
-
-        if response.status_code != 200:
-            raise Exception("Upload failed")
-
-        return filename
+        print("PRINT COMMAND SENT")
 
     except Exception as e:
-        print("Upload error:", str(e))
-        raise
+        print("PRINT ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # 🔥 Update DB
+    # 🔥 UPDATE DB
     next_job.status = "printing"
     next_job.started_at = datetime.utcnow()
 
@@ -277,3 +260,42 @@ def clear_printer_queue(printer_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Queue cleared"}
+
+
+# ==============================
+# Delete Printer
+#
+
+
+from fastapi import HTTPException, Depends
+from app.core.security import require_role
+
+# ==============================
+# DELETE PRINTER
+# ==============================
+
+@router.delete("/{printer_id}", dependencies=[Depends(require_role(["admin"]))])
+def delete_printer(printer_id: int, db: Session = Depends(get_db)):
+
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+
+    # ❗ Safety: check if printer has active jobs
+    active_job = db.query(BatchPrinter).filter(
+        BatchPrinter.printer_id == printer_id,
+        BatchPrinter.status.in_(["queued", "waiting_confirmation", "printing"])
+    ).first()
+
+    if active_job:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete printer with active jobs"
+        )
+
+    # delete printer
+    db.delete(printer)
+    db.commit()
+
+    return {"message": "Printer deleted successfully"}
