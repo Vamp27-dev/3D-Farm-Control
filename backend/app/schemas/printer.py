@@ -7,6 +7,7 @@ from datetime import datetime
 class PrinterCreate(BaseModel):
     name: str
     ip_address: str
+    type: str = "klipper"
 
     brand: Optional[str] = None
     model: Optional[str] = None
@@ -18,6 +19,7 @@ class PrinterResponse(BaseModel):
     id: int
     name: str
     ip_address: str
+    type: str
     brand: str | None = None
     model: str | None = None
     location: Optional[str]

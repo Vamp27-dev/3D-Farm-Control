@@ -1,20 +1,17 @@
 import { useState } from "react"
 
-const API_BASE = "http://localhost:8000"
+const API_BASE = "http://192.168.68.151:8000"
 
 function AddPrinter() {
   const [name, setName] = useState("")
   const [ip, setIp] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
+  const [type, setType] = useState("klipper") // 👈 NEW
 
   const handleSubmit = async () => {
-    if (!name) {
-      setMessage("Printer name required")
+    if (!name || !ip) {
+      alert("Fill all fields")
       return
     }
-
-    setLoading(true)
 
     try {
       const token = localStorage.getItem("token")
@@ -27,56 +24,63 @@ function AddPrinter() {
         },
         body: JSON.stringify({
           name,
-          ip_address: ip
+          ip_address: ip,
+          type // 👈 SEND TYPE
         })
       })
 
       if (!res.ok) {
-        throw new Error("Failed to add printer")
+        const data = await res.json()
+        alert(data.detail || "Failed to add printer")
+        return
       }
 
-      setMessage("Printer added successfully")
+      alert("Printer added ✅")
+
       setName("")
       setIp("")
-    } catch (err: any) {
-      setMessage(err.message)
-    }
+      setType("klipper")
 
-    setLoading(false)
+    } catch (err) {
+      console.error(err)
+      alert("Failed to add printer")
+    }
   }
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white p-6">
-      <h1 className="text-2xl font-bold mb-6">Add Printer</h1>
+      <h1 className="text-2xl mb-6">Add Printer</h1>
 
-      <div className="bg-slate-800 p-6 rounded-xl w-96">
-
-        {message && (
-          <p className="mb-4 text-sm text-yellow-400">{message}</p>
-        )}
-
+      <div className="space-y-4 max-w-md">
         <input
-          type="text"
-          placeholder="Printer Name"
-          className="w-full mb-3 p-2 rounded bg-slate-700"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Printer Name"
+          className="w-full p-2 rounded bg-slate-800"
         />
 
         <input
-          type="text"
-          placeholder="IP Address (optional)"
-          className="w-full mb-4 p-2 rounded bg-slate-700"
           value={ip}
-          onChange={e => setIp(e.target.value)}
+          onChange={(e) => setIp(e.target.value)}
+          placeholder="IP Address"
+          className="w-full p-2 rounded bg-slate-800"
         />
+
+        {/* 🔥 NEW DROPDOWN */}
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="w-full p-2 rounded bg-slate-800"
+        >
+          <option value="klipper">Neptune (Klipper)</option>
+          <option value="centauri">Centauri Carbon</option>
+        </select>
 
         <button
           onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-green-600 py-2 rounded"
+          className="bg-green-600 px-4 py-2 rounded hover:bg-green-500"
         >
-          {loading ? "Adding..." : "Add Printer"}
+          Add Printer
         </button>
       </div>
     </div>
