@@ -7,6 +7,10 @@ from app.core.database import Base, engine, SessionLocal
 # Import ALL models (important for table creation)
 from app.models import printer, tag, batch, batch_printer, file, user, job_history
 
+# 👇 ADD (Centauri)
+from app.services.centauri_ws import start_centauri_listener
+import threading
+
 # Import routers
 from app.routers import printer as printer_router
 from app.routers import tag as tag_router
@@ -34,11 +38,11 @@ app = FastAPI()
 
 
 # ==========================
-# ✅ CORS (FIXED PROPERLY)
+# CORS
 # ==========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # later restrict to your frontend IP
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,12 +61,18 @@ app.include_router(auth_router.router)
 
 
 # ==========================
-# ✅ START POLLER SAFELY
+# START SERVICES
 # ==========================
 @app.on_event("startup")
 def startup_event():
     print("Starting background poller...")
     start_poller()
+
+    print("Starting Centauri listener...")
+    threading.Thread(
+        target=start_centauri_listener,
+        daemon=True
+    ).start()
 
 
 # ==========================
@@ -74,7 +84,7 @@ def root():
 
 
 # ==========================
-# WebSocket Endpoint
+# WebSocket Endpoint (Frontend)
 # ==========================
 @app.websocket("/ws/printers")
 async def websocket_endpoint(websocket: WebSocket):

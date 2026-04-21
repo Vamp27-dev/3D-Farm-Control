@@ -40,6 +40,7 @@ def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
     db_printer = Printer(
         name=printer.name,
         ip_address=printer.ip_address,
+        type=printer.type,
         brand=printer.brand,
         model=printer.model,
         location=printer.location,

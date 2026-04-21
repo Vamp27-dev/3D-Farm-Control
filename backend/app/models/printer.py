@@ -10,6 +10,7 @@ class Printer(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     ip_address = Column(String)
+
     brand = Column(String)
     model = Column(String)
     location = Column(String)
@@ -17,7 +18,11 @@ class Printer(Base):
     status = Column(String, default="offline")
     progress = Column(Float, default=0)
     current_file = Column(String, nullable=True)
+    
     camera_url = Column(String, nullable=True)
+
+    # 👇 NEW FIELD (VERY IMPORTANT)
+    type = Column(String, default="klipper")
 
     last_seen = Column(DateTime, default=datetime.utcnow)
 
