@@ -1,11 +1,10 @@
 import { useState } from "react"
-
-const API_BASE = "http://192.168.68.151:8000"
+import { apiFetch } from "./api"  // ✅ FIX: use shared apiFetch (no hardcoded IP)
 
 function AddPrinter() {
   const [name, setName] = useState("")
   const [ip, setIp] = useState("")
-  const [type, setType] = useState("klipper") // 👈 NEW
+  const [type, setType] = useState("klipper")
 
   const handleSubmit = async () => {
     if (!name || !ip) {
@@ -14,33 +13,22 @@ function AddPrinter() {
     }
 
     try {
-      const token = localStorage.getItem("token")
-
-      const res = await fetch(`${API_BASE}/printers/`, {
+      const res = await apiFetch("/printers/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name,
-          ip_address: ip,
-          type // 👈 SEND TYPE
-        })
+        body: JSON.stringify({ name, ip_address: ip, type }),
       })
 
-      if (!res.ok) {
-        const data = await res.json()
-        alert(data.detail || "Failed to add printer")
+      if (!res) return // 401 handled by apiFetch
+
+      if (res.detail) {
+        alert(res.detail)
         return
       }
 
       alert("Printer added ✅")
-
       setName("")
       setIp("")
       setType("klipper")
-
     } catch (err) {
       console.error(err)
       alert("Failed to add printer")
@@ -66,7 +54,6 @@ function AddPrinter() {
           className="w-full p-2 rounded bg-slate-800"
         />
 
-        {/* 🔥 NEW DROPDOWN */}
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
