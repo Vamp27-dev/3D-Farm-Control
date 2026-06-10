@@ -3,12 +3,10 @@ from typing import Optional
 from datetime import datetime
 
 
-
 class PrinterCreate(BaseModel):
     name: str
     ip_address: str
     type: str = "klipper"
-
     brand: Optional[str] = None
     model: Optional[str] = None
     location: Optional[str] = None
@@ -20,14 +18,13 @@ class PrinterResponse(BaseModel):
     name: str
     ip_address: str
     type: str
-    brand: str | None = None
-    model: str | None = None
-    location: Optional[str]
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    location: Optional[str] = None
     status: str
-    current_file: Optional[str]
+    current_file: Optional[str] = None
     progress: float
     last_seen: datetime
-    camera_url: str | None = None
+    camera_url: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}  # ✅ Pydantic V2 fix

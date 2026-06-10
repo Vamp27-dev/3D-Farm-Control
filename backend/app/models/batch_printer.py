@@ -17,6 +17,6 @@ class BatchPrinter(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
-    # Relationships using strings
-    printer = relationship("Printer", back_populates="batch_jobs")
-    batch = relationship("Batch", back_populates="printer_jobs")
+    # ✅ FIX: overlaps= added to silence SQLAlchemy V2 warning
+    printer = relationship("Printer", back_populates="batch_jobs", overlaps="batch_jobs")
+    batch = relationship("Batch", back_populates="printer_jobs", overlaps="printer_jobs")

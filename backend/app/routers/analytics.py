@@ -3,22 +3,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
-from app.core.database import SessionLocal
+from app.core.database import get_db  # ✅ FIX: use shared get_db, not a duplicate
 from app.models.job_history import JobHistory
 from app.models.printer import Printer
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-@router.get("/production")
+@router.get("")          # ✅ FIX: frontend calls "/analytics" (no trailing slash)
+@router.get("/")         # keep this too so both work
+@router.get("/production")  # keep original route as well
 def production_stats(db: Session = Depends(get_db)):
 
     today = datetime.utcnow().date()
@@ -36,9 +30,9 @@ def production_stats(db: Session = Depends(get_db)):
         JobHistory.completed_at >= week_start
     ).count()
 
-    # Success / failure
+    # ✅ FIX: status was "completed" but poller.py writes "success" — use "success"
     success = db.query(JobHistory).filter(
-        JobHistory.status == "completed"
+        JobHistory.status == "success"
     ).count()
 
     failed = db.query(JobHistory).filter(
@@ -51,18 +45,15 @@ def production_stats(db: Session = Depends(get_db)):
     if total_jobs > 0:
         success_rate = round((success / total_jobs) * 100, 2)
 
-    # Average print time (computed from timestamps)
-    durations = db.query(
-        func.extract('epoch', JobHistory.completed_at - JobHistory.started_at)
-    ).filter(
-        JobHistory.completed_at != None,
-        JobHistory.started_at != None
+    # Average print time — use stored duration_seconds column (faster + portable)
+    durations = db.query(JobHistory.duration_seconds).filter(
+        JobHistory.duration_seconds != None,
+        JobHistory.duration_seconds > 0
     ).all()
 
     avg_print_time = None
-
     if durations:
-        avg_seconds = sum([d[0] for d in durations]) / len(durations)
+        avg_seconds = sum(d[0] for d in durations) / len(durations)
         avg_print_time = round(avg_seconds / 60, 2)  # minutes
 
     # Active printers
@@ -75,5 +66,5 @@ def production_stats(db: Session = Depends(get_db)):
         "week_prints": week_prints,
         "success_rate": success_rate,
         "avg_print_time_minutes": avg_print_time,
-        "active_printers": active_printers
+        "active_printers": active_printers,
     }

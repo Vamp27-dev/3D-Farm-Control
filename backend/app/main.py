@@ -7,7 +7,6 @@ from app.core.database import Base, engine, SessionLocal
 # Import ALL models (important for table creation)
 from app.models import printer, tag, batch, batch_printer, file, user, job_history
 
-# 👇 ADD (Centauri)
 from app.services.centauri_ws import start_centauri_listener
 import threading
 
@@ -19,9 +18,7 @@ from app.routers import file as file_router
 from app.routers import analytics as analytics_router
 from app.routers import auth as auth_router
 
-# Import poller starter
 from app.services.poller import start_poller
-
 from app.models.printer import Printer
 
 
@@ -38,11 +35,21 @@ app = FastAPI()
 
 
 # ==========================
-# CORS
+# ✅ FIX: Explicit CORS origins
+# "*" fails when the backend crashes before sending headers.
+# Listing origins explicitly also fixes preflight requests.
 # ==========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "*",                          # keep for flexibility
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://192.168.68.151:3000",
+        "http://192.168.68.151:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,7 +78,7 @@ def startup_event():
     print("Starting Centauri listener...")
     threading.Thread(
         target=start_centauri_listener,
-        daemon=True
+        daemon=True,
     ).start()
 
 
@@ -84,7 +91,7 @@ def root():
 
 
 # ==========================
-# WebSocket Endpoint (Frontend)
+# WebSocket Endpoint (Frontend live updates)
 # ==========================
 @app.websocket("/ws/printers")
 async def websocket_endpoint(websocket: WebSocket):
@@ -96,7 +103,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.sleep(3)
 
             db = SessionLocal()
-
             try:
                 printers = db.query(Printer).all()
 
@@ -106,7 +112,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "name": p.name,
                         "status": p.status,
                         "progress": round(p.progress or 0, 2),
-                        "current_file": p.current_file
+                        "current_file": p.current_file,
                     }
                     for p in printers
                 ]
