@@ -302,3 +302,88 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Job cancelled"}
+
+# ============================
+# START BATCH
+# Add this to backend/app/routers/batch.py
+# ============================
+
+@router.post("/{batch_id}/start",
+             dependencies=[Depends(require_role(["admin", "operator"]))])
+async def start_batch(batch_id: int, db: Session = Depends(get_db)):
+    """
+    Start all waiting_confirmation jobs in this batch.
+    For each idle printer in the batch, upload the file and begin printing.
+    Printers that are already printing get their job moved to 'queued' (will auto-start after).
+    """
+    from app.services.printer_service import upload_file_to_printer, start_print
+
+    batch = db.query(Batch).filter(Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    file = db.query(File).filter(File.id == batch.file_id).first()
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found for batch")
+
+    file_path = f"/app/storage/{file.stored_name}"
+
+    jobs = db.query(BatchPrinter).filter(
+        BatchPrinter.batch_id == batch_id,
+        BatchPrinter.status == "waiting_confirmation",
+    ).all()
+
+    if not jobs:
+        raise HTTPException(
+            status_code=400,
+            detail="No jobs waiting to start — already started or all cancelled"
+        )
+
+    started = 0
+    queued  = 0
+    errors  = []
+
+    for job in jobs:
+        printer = db.query(Printer).filter(Printer.id == job.printer_id).first()
+        if not printer:
+            continue
+
+        if printer.status == "idle":
+            # Printer is free — upload and start immediately
+            try:
+                uploaded_name = await upload_file_to_printer(printer.ip_address, file_path)
+                await start_print(printer.ip_address, uploaded_name)
+
+                job.status        = "printing"
+                job.started_at    = datetime.utcnow()
+                printer.status    = "printing"
+                printer.progress  = 0
+                printer.current_file = file.original_name
+                printer.last_seen = datetime.utcnow()
+
+                started += 1
+                print(f"[Batch {batch_id}] Started on {printer.name}")
+
+            except Exception as e:
+                errors.append(f"{printer.name}: {str(e)}")
+                print(f"[Batch {batch_id}] Failed to start on {printer.name}: {e}")
+
+        elif printer.status in ("printing", "paused"):
+            # Printer busy — keep in queue, poller will auto-start when free
+            job.status = "queued"
+            queued += 1
+            print(f"[Batch {batch_id}] Queued on {printer.name} (busy)")
+
+        else:
+            # Offline — skip
+            job.status = "queued"
+            queued += 1
+
+    db.commit()
+
+    return {
+        "message": f"Batch started",
+        "started": started,
+        "queued": queued,
+        "errors": errors,
+    }
