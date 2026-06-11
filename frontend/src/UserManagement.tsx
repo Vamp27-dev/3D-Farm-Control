@@ -2,6 +2,14 @@ import { useEffect, useState, useCallback } from "react"
 import { Link } from "react-router-dom"
 import { apiFetch } from "./App"
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  })
+}
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
 
 interface UserItem { id: number; username: string; role: string }

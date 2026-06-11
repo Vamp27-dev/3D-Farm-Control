@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { Link } from "react-router-dom"
 import { apiFetch } from "./App"
+import { getUserRole } from "./utils/auth"
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
 
@@ -19,6 +20,7 @@ export default function Files() {
   const [folders, setFolders]               = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [files, setFiles]                   = useState<FileItem[]>([])
+  const role = getUserRole()
   const [uploading, setUploading]           = useState(false)
   const [deletingId, setDeletingId]         = useState<number | null>(null)
 
@@ -102,6 +104,12 @@ export default function Files() {
             borderBottom: label === "Files" ? "2px solid #3b82f6" : "2px solid transparent",
           }}>{label}</Link>
         ))}
+        {role === "admin" && (
+          <Link to="/users/manage" style={{
+            fontSize: 13, color: "#475569", textDecoration: "none",
+            padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
+          }}>Users</Link>
+        )}
       </div>
 
       <div style={{ padding: "28px 32px" }}>

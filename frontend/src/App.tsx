@@ -648,12 +648,18 @@ function Dashboard() {
         <span style={{ fontSize: 13, fontWeight: 700, color: "#10b981", marginRight: 32, letterSpacing: 0.5 }}>
           FARM CONTROL
         </span>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"], ["Users", "/users/manage"]].map(([label, path]) => (
+        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"]].map(([label, path]) => (
           <Link key={label} to={path} style={{
             fontSize: 13, color: "#475569", textDecoration: "none",
             padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
           }}>{label}</Link>
         ))}
+        {role === "admin" && (
+          <Link to="/users/manage" style={{
+            fontSize: 13, color: "#475569", textDecoration: "none",
+            padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
+          }}>Users</Link>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
 
           {role === "admin" && (

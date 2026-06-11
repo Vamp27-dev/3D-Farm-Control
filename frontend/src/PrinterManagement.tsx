@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { Link } from "react-router-dom"
+import { getUserRole } from "./utils/auth"
 import { apiFetch } from "./App"
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
@@ -172,6 +173,7 @@ function StatusDot({ status }: { status: string }) {
 // ─── Printer Management Page ──────────────────────────────────────────────────
 
 export default function PrinterManagement() {
+  const role = getUserRole()
   const [printers, setPrinters]     = useState<Printer[]>([])
   const [editing, setEditing]       = useState<Printer | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -237,6 +239,12 @@ export default function PrinterManagement() {
             borderBottom: label === "Printers" ? "2px solid #3b82f6" : "2px solid transparent",
           }}>{label}</Link>
         ))}
+        {role === "admin" && (
+          <Link to="/users/manage" style={{
+            fontSize: 13, color: "#475569", textDecoration: "none",
+            padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
+          }}>Users</Link>
+        )}
         <div style={{ marginLeft: "auto" }}>
           <button onClick={() => { localStorage.removeItem("token"); window.location.href = "/login" }}
             style={{

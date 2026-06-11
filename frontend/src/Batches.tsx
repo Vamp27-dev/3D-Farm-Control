@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
+import { getUserRole } from "./utils/auth"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,9 +60,10 @@ function formatSize(bytes: number) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
+  return new Date(iso).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
   })
 }
 
@@ -475,6 +477,7 @@ function CreateBatchModal({
 // ─── Batches Page ─────────────────────────────────────────────────────────────
 
 function Batches() {
+  const role = getUserRole()
   const [batches, setBatches]           = useState<Batch[]>([])
   const [showCreate, setShowCreate]     = useState(false)
   const [expandedId, setExpandedId]     = useState<number | null>(null)
@@ -559,12 +562,18 @@ function Batches() {
         <a href="/" style={{ fontSize: 13, fontWeight: 700, color: "#10b981", textDecoration: "none", letterSpacing: 0.5 }}>
           FARM CONTROL
         </a>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"]].map(([label, path]) => (
+        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"]].map(([label, path]) => (
           <a key={label} href={path} style={{
-            fontSize: 13, color: label === "Batches" ? "#f1f5f9" : "#475569",
+            fontSize: 13,
+            color: label === "Batches" ? "#f1f5f9" : "#475569",
             textDecoration: "none", fontWeight: label === "Batches" ? 600 : 400,
           }}>{label}</a>
         ))}
+        {role === "admin" && (
+          <a href="/users/manage" style={{
+            fontSize: 13, color: "#475569", textDecoration: "none", padding: "0 4px",
+          }}>Users</a>
+        )}
       </div>
 
       <div style={{ padding: "28px 32px" }}>
