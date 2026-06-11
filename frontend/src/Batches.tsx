@@ -479,6 +479,7 @@ function Batches() {
   const [showCreate, setShowCreate]     = useState(false)
   const [expandedId, setExpandedId]     = useState<number | null>(null)
   const [summaries, setSummaries]       = useState<Record<number, any>>({})
+  const [startingBatchId, setStartingBatchId] = useState<number | null>(null)
 
   const loadBatches = useCallback(async () => {
     const data = await apiFetch("/batches/")
@@ -500,29 +501,35 @@ function Batches() {
 
   const startBatch = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation()
-    const token = localStorage.getItem("token")
-    const raw = await fetch(
-      `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000"}/batches/${id}/start`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+    if (startingBatchId !== null) return  // prevent double-click
+    setStartingBatchId(id)
+    try {
+      const token = localStorage.getItem("token")
+      const raw = await fetch(
+        `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000"}/batches/${id}/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      )
+      const res = await raw.json()
+      if (!raw.ok) {
+        alert(res?.detail ?? "Failed to start batch")
+        return
       }
-    )
-    const res = await raw.json()
-    if (!raw.ok) {
-      alert(res?.detail ?? "Failed to start batch")
-      return
+      const parts = [
+        res.started > 0 ? `✅ ${res.started} printer(s) started` : null,
+        res.queued  > 0 ? `⏳ ${res.queued} queued (busy printers will auto-start)` : null,
+        res.errors?.length > 0 ? `⚠️ ${res.errors.join(", ")}` : null,
+      ].filter(Boolean)
+      alert(parts.length ? parts.join("\n") : "Batch started")
+      loadBatches()
+    } finally {
+      setStartingBatchId(null)
     }
-    const parts = [
-      res.started > 0 ? `✅ ${res.started} printer(s) started` : null,
-      res.queued  > 0 ? `⏳ ${res.queued} queued (busy printers will auto-start)` : null,
-      res.errors?.length > 0 ? `⚠️ ${res.errors.join(", ")}` : null,
-    ].filter(Boolean)
-    alert(parts.length ? parts.join("\n") : "Batch started")
-    loadBatches()
   }
 
   const toggleExpand = async (id: number) => {
@@ -543,6 +550,7 @@ function Batches() {
       minHeight: "100vh", background: "#070e1a",
       color: "#f1f5f9", fontFamily: "'Inter', system-ui, sans-serif",
     }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       {/* Nav */}
       <div style={{
         borderBottom: "1px solid #0f1f35", padding: "0 32px",
@@ -669,13 +677,31 @@ function Batches() {
                       {(batch.status === "queued" || batch.status === "empty") && (
                         <button
                           onClick={e => startBatch(batch.id, e)}
+                          disabled={startingBatchId === batch.id}
                           style={{
-                            background: "#10b98118", border: "1px solid #10b981",
-                            color: "#10b981", borderRadius: 6, padding: "4px 12px",
-                            fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0,
+                            background: startingBatchId === batch.id ? "#0d1b2e" : "#10b98118",
+                            border: `1px solid ${startingBatchId === batch.id ? "#1e293b" : "#10b981"}`,
+                            color: startingBatchId === batch.id ? "#475569" : "#10b981",
+                            borderRadius: 6, padding: "4px 12px",
+                            fontSize: 12, fontWeight: 600,
+                            cursor: startingBatchId === batch.id ? "not-allowed" : "pointer",
+                            flexShrink: 0,
+                            display: "flex", alignItems: "center", gap: 6,
+                            minWidth: 90, justifyContent: "center",
                           }}
                         >
-                          ▶ Start
+                          {startingBatchId === batch.id ? (
+                            <>
+                              <span style={{
+                                display: "inline-block", width: 10, height: 10,
+                                border: "2px solid #475569",
+                                borderTopColor: "#10b981",
+                                borderRadius: "50%",
+                                animation: "spin 0.7s linear infinite",
+                              }} />
+                              Sending…
+                            </>
+                          ) : "▶ Start"}
                         </button>
                       )}
                       <button

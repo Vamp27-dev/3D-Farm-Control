@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
+from pydantic import BaseModel
+from typing import Optional
 
 import httpx
 
@@ -13,12 +15,7 @@ from app.models.batch import Batch
 from app.models.file import File
 
 from app.schemas.printer import PrinterCreate, PrinterResponse
-
-from app.services.printer_service import (
-    upload_file_to_printer,
-    start_print,
-)
-
+from app.services.printer_service import upload_file_to_printer, start_print
 from app.core.security import require_role
 
 router = APIRouter(prefix="/printers", tags=["Printers"])
@@ -54,7 +51,7 @@ def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
 
 
 # ==============================
-# LIST PRINTERS — returns DB state (poller keeps it fresh)
+# LIST PRINTERS
 # ==============================
 
 @router.get("/", response_model=list[PrinterResponse])
@@ -63,7 +60,49 @@ def list_printers(db: Session = Depends(get_db)):
 
 
 # ==============================
-# ✅ PAUSE — proxied through backend to avoid browser CORS
+# UPDATE PRINTER (admin only)
+# ==============================
+
+class PrinterUpdate(BaseModel):
+    name: Optional[str] = None
+    ip_address: Optional[str] = None
+    location: Optional[str] = None
+    camera_url: Optional[str] = None
+
+@router.patch("/{printer_id}", dependencies=[Depends(require_role(["admin"]))])
+def update_printer(printer_id: int, data: PrinterUpdate, db: Session = Depends(get_db)):
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+
+    if data.name is not None:
+        # check name uniqueness
+        existing = db.query(Printer).filter(
+            Printer.name == data.name,
+            Printer.id != printer_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Printer name already in use")
+        printer.name = data.name
+
+    if data.ip_address is not None:
+        printer.ip_address = data.ip_address
+    if data.location is not None:
+        printer.location = data.location
+    if data.camera_url is not None:
+        printer.camera_url = data.camera_url
+
+    try:
+        db.commit()
+        db.refresh(printer)
+        return {"message": "Printer updated", "id": printer.id, "name": printer.name, "ip_address": printer.ip_address}
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Printer name already in use")
+
+
+# ==============================
+# PAUSE
 # ==============================
 
 @router.post("/{printer_id}/pause")
@@ -82,7 +121,7 @@ async def pause_print(printer_id: int, db: Session = Depends(get_db)):
 
 
 # ==============================
-# ✅ RESUME — proxied through backend
+# RESUME
 # ==============================
 
 @router.post("/{printer_id}/resume")
@@ -101,7 +140,7 @@ async def resume_print(printer_id: int, db: Session = Depends(get_db)):
 
 
 # ==============================
-# ✅ CANCEL — proxied through backend
+# ✅ FIXED CANCEL
 # ==============================
 
 @router.post("/{printer_id}/cancel")
@@ -109,26 +148,40 @@ async def cancel_print(printer_id: int, db: Session = Depends(get_db)):
     printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
+
+    printer_error = None
+
+    # ✅ FIX: always update DB regardless of printer response
+    # Moonraker cancel can return non-200 but still cancel successfully
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             res = await client.post(f"http://{printer.ip_address}/printer/print/cancel")
-        if res.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Printer returned {res.status_code}")
-        # Mark any active job as cancelled in DB
-        job = db.query(BatchPrinter).filter(
-            BatchPrinter.printer_id == printer_id,
-            BatchPrinter.status == "printing"
-        ).first()
-        if job:
-            job.status = "cancelled"
-            job.completed_at = datetime.utcnow()
-        printer.status = "idle"
-        printer.progress = 0
-        printer.current_file = None
-        db.commit()
-        return {"message": "Print cancelled"}
+        if res.status_code not in (200, 201, 204):
+            printer_error = f"Printer returned {res.status_code} but job was cancelled"
     except httpx.ConnectError:
-        raise HTTPException(status_code=502, detail="Cannot reach printer")
+        printer_error = "Could not reach printer — DB updated anyway"
+    except Exception as e:
+        printer_error = str(e)
+
+    # Always clean up DB
+    job = db.query(BatchPrinter).filter(
+        BatchPrinter.printer_id == printer_id,
+        BatchPrinter.status == "printing"
+    ).first()
+    if job:
+        job.status = "cancelled"
+        job.completed_at = datetime.utcnow()
+
+    printer.status = "idle"
+    printer.progress = 0
+    printer.current_file = None
+    db.commit()
+
+    # Return success even if printer had a hiccup — the cancel happened
+    return {
+        "message": "Print cancelled",
+        "warning": printer_error  # None if all good, message if printer was unreachable
+    }
 
 
 # ==============================
@@ -174,7 +227,6 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="File not found")
 
     file_path = f"/app/storage/{file.stored_name}"
-
     try:
         uploaded_filename = await upload_file_to_printer(printer.ip_address, file_path)
         await start_print(printer.ip_address, uploaded_filename)
@@ -188,32 +240,7 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
     printer.current_file = file.original_name
     printer.last_seen = datetime.utcnow()
     db.commit()
-
     return {"message": "Print started successfully"}
-
-
-# ==============================
-# COMPLETE PRINT JOB
-# ==============================
-
-@router.post("/{printer_id}/complete")
-def complete_print(printer_id: int, db: Session = Depends(get_db)):
-    printer = db.query(Printer).filter(Printer.id == printer_id).first()
-    if not printer:
-        raise HTTPException(status_code=404, detail="Printer not found")
-    job = db.query(BatchPrinter).filter(
-        BatchPrinter.printer_id == printer_id,
-        BatchPrinter.status == "printing",
-    ).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="No active job")
-    job.status = "completed"
-    job.completed_at = datetime.utcnow()
-    printer.status = "idle"
-    printer.progress = 100
-    printer.current_file = None
-    db.commit()
-    return {"message": "Print completed"}
 
 
 # ==============================

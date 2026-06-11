@@ -17,6 +17,7 @@ from app.routers import batch as batch_router
 from app.routers import file as file_router
 from app.routers import analytics as analytics_router
 from app.routers import auth as auth_router
+from app.routers import users as users_router
 
 from app.services.poller import start_poller
 from app.models.printer import Printer
@@ -65,6 +66,7 @@ app.include_router(batch_router.router)
 app.include_router(file_router.router)
 app.include_router(analytics_router.router)
 app.include_router(auth_router.router)
+app.include_router(users_router.router)
 
 
 # ==========================

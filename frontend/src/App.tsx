@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { Routes, Route, Link } from "react-router-dom"
 import Files from "./Files"
 import AddPrinter from "./AddPrinter"
@@ -6,6 +6,8 @@ import Login from "./Login"
 import ProtectedRoute from "./ProtectedRoute"
 import { getUserRole } from "./utils/auth"
 import Batches from "./Batches"
+import PrinterManagement from "./PrinterManagement"
+import UserManagement from "./UserManagement"
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
 
@@ -566,6 +568,8 @@ function App() {
       <Route path="/files" element={<ProtectedRoute><Files /></ProtectedRoute>} />
       <Route path="/add-printer" element={<ProtectedRoute><AddPrinter /></ProtectedRoute>} />
       <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
+      <Route path="/printers/manage" element={<ProtectedRoute><PrinterManagement /></ProtectedRoute>} />
+      <Route path="/users/manage" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
     </Routes>
   )
 }
@@ -578,18 +582,22 @@ function Dashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [selectedPrinter, setSelectedPrinter] = useState<Printer | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showBatchModal, setShowBatchModal] = useState(false)
+
+  const selectedPrinterRef = useRef<Printer | null>(null)
+  selectedPrinterRef.current = selectedPrinter
 
   const loadPrinters = useCallback(async () => {
     const data = await apiFetch("/printers/")
     if (data) {
       setPrinters(data)
-      if (selectedPrinter) {
-        const updated = data.find((p: Printer) => p.id === selectedPrinter.id)
+      // ✅ FIX: use ref so this never goes stale, no re-renders caused by dependency
+      const cur = selectedPrinterRef.current
+      if (cur) {
+        const updated = data.find((p: Printer) => p.id === cur.id)
         if (updated) setSelectedPrinter(updated)
       }
     }
-  }, [selectedPrinter])
+  }, [])  // ✅ empty deps — stable function reference
 
   useEffect(() => {
     loadPrinters()
@@ -640,18 +648,14 @@ function Dashboard() {
         <span style={{ fontSize: 13, fontWeight: 700, color: "#10b981", marginRight: 32, letterSpacing: 0.5 }}>
           FARM CONTROL
         </span>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"]].map(([label, path]) => (
+        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"], ["Users", "/users/manage"]].map(([label, path]) => (
           <Link key={label} to={path} style={{
             fontSize: 13, color: "#475569", textDecoration: "none",
             padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
           }}>{label}</Link>
         ))}
         <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center" }}>
-          <button onClick={() => setShowBatchModal(true)} style={{
-            background: "#0d2137", border: "1px solid #1e3a5f",
-            color: "#93c5fd", borderRadius: 6, padding: "6px 14px",
-            fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>⚡ Batch Print</button>
+
           {role === "admin" && (
             <button onClick={() => setShowAddModal(true)} style={{
               background: "#10b981", border: "none", color: "#fff",
@@ -774,7 +778,6 @@ function Dashboard() {
         <PrinterTray printer={selectedPrinter} onClose={() => setSelectedPrinter(null)} onRefresh={loadPrinters} />
       )}
       {showAddModal && <AddPrinterModal onClose={() => setShowAddModal(false)} onAdded={loadPrinters} />}
-      {showBatchModal && <BatchModal printers={printers} onClose={() => setShowBatchModal(false)} onDone={loadPrinters} />}
     </div>
   )
 }
