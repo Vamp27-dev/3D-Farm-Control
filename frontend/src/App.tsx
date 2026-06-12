@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react"
+import { useTheme } from "./theme"
+import PrintHistory from "./PrintHistory"
 import { Routes, Route, Link } from "react-router-dom"
 import Files from "./Files"
 import AddPrinter from "./AddPrinter"
@@ -38,6 +40,21 @@ interface Printer {
   camera_url?: string
   ip_address?: string
   type?: string
+  // health fields
+  bed_temp?: number | null
+  bed_target?: number | null
+  extruder_temp?: number | null
+  extruder_target?: number | null
+  eta_seconds?: number | null
+}
+
+function fmtETA(sec: number | null | undefined): string {
+  if (!sec || sec <= 0) return ""
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  if (h > 0) return `~${h}h ${m}m left`
+  if (m > 0) return `~${m}m left`
+  return `< 1m left`
 }
 
 interface QueueItem {
@@ -54,6 +71,21 @@ interface Analytics {
   success_rate: number
   avg_print_time_minutes: number | null
   active_printers: number
+}
+
+// ─── Theme Toggle Button ──────────────────────────────────────────────────────
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme()
+  return (
+    <button onClick={toggle} title="Toggle theme" style={{
+      background: "var(--card)", border: "1px solid var(--border)",
+      color: "var(--text-muted)", borderRadius: 6,
+      padding: "6px 10px", fontSize: 16, cursor: "pointer", lineHeight: 1,
+    }}>
+      {theme === "dark" ? "☀️" : "🌙"}
+    </button>
+  )
 }
 
 // ─── Printer Tray ────────────────────────────────────────────────────────────
@@ -233,6 +265,77 @@ function PrinterTray({
           </TrayBtn>
         )}
       </div>
+
+      {/* Health indicators — show whenever temp data available (idle shows standby temps) */}
+      {(printer.extruder_temp || printer.bed_temp) && (
+        <div style={{ padding: "12px 24px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
+            TEMPERATURES
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {/* Extruder */}
+            <div style={{
+              flex: 1, background: "var(--card2)", borderRadius: 8, padding: "10px 12px",
+              border: "1px solid var(--border)",
+            }}>
+              <div style={{ fontSize: 10, color: "#475569", marginBottom: 4 }}>EXTRUDER</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b", fontVariantNumeric: "tabular-nums" }}>
+                {printer.extruder_temp?.toFixed(0) ?? "—"}°
+              </div>
+              <div style={{ fontSize: 11, color: "#475569" }}>
+                target {printer.extruder_target?.toFixed(0) ?? "—"}°
+              </div>
+              {printer.extruder_temp && printer.extruder_target && printer.extruder_target > 0 && (
+                <div style={{ marginTop: 6, background: "var(--border)", borderRadius: 3, height: 3 }}>
+                  <div style={{
+                    width: `${Math.min(100, (printer.extruder_temp / printer.extruder_target) * 100)}%`,
+                    height: "100%", background: "#f59e0b", borderRadius: 3,
+                    transition: "width 1s ease",
+                  }} />
+                </div>
+              )}
+            </div>
+            {/* Bed */}
+            <div style={{
+              flex: 1, background: "var(--card2)", borderRadius: 8, padding: "10px 12px",
+              border: "1px solid var(--border)",
+            }}>
+              <div style={{ fontSize: 10, color: "#475569", marginBottom: 4 }}>BED</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#3b82f6", fontVariantNumeric: "tabular-nums" }}>
+                {printer.bed_temp?.toFixed(0) ?? "—"}°
+              </div>
+              <div style={{ fontSize: 11, color: "#475569" }}>
+                target {printer.bed_target?.toFixed(0) ?? "—"}°
+              </div>
+              {printer.bed_temp && printer.bed_target && printer.bed_target > 0 && (
+                <div style={{ marginTop: 6, background: "var(--border)", borderRadius: 3, height: 3 }}>
+                  <div style={{
+                    width: `${Math.min(100, (printer.bed_temp / printer.bed_target) * 100)}%`,
+                    height: "100%", background: "#3b82f6", borderRadius: 3,
+                    transition: "width 1s ease",
+                  }} />
+                </div>
+              )}
+            </div>
+          </div>
+          {/* ETA */}
+          {printer.eta_seconds && printer.eta_seconds > 0 && (
+            <div style={{
+              marginTop: 10, background: "#10b98112",
+              border: "1px solid #10b98133", borderRadius: 8,
+              padding: "8px 12px", display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 14 }}>⏱</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#10b981" }}>
+                  {fmtETA(printer.eta_seconds)}
+                </div>
+                <div style={{ fontSize: 11, color: "#475569" }}>estimated time remaining</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Queue */}
       <div style={{ padding: "16px 24px", flex: 1, overflowY: "auto" }}>
@@ -570,6 +673,7 @@ function App() {
       <Route path="/batches" element={<ProtectedRoute><Batches /></ProtectedRoute>} />
       <Route path="/printers/manage" element={<ProtectedRoute><PrinterManagement /></ProtectedRoute>} />
       <Route path="/users/manage" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+      <Route path="/history" element={<ProtectedRoute><PrintHistory /></ProtectedRoute>} />
     </Routes>
   )
 }
@@ -638,17 +742,17 @@ function Dashboard() {
   const offline  = printers.filter(p => p.status === "offline").length
 
   return (
-    <div style={{ minHeight: "100vh", background: "#070e1a", color: "#f1f5f9", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       {/* Nav */}
       <div style={{
-        borderBottom: "1px solid #0f1f35", padding: "0 32px",
+        borderBottom: "1px solid var(--border)", padding: "0 32px",
         display: "flex", alignItems: "center", height: 52,
       }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#10b981", marginRight: 32, letterSpacing: 0.5 }}>
           FARM CONTROL
         </span>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"]].map(([label, path]) => (
+        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"], ["History", "/history"]].map(([label, path]) => (
           <Link key={label} to={path} style={{
             fontSize: 13, color: "#475569", textDecoration: "none",
             padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
@@ -668,9 +772,10 @@ function Dashboard() {
               borderRadius: 6, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer",
             }}>+ Add Printer</button>
           )}
+          <ThemeToggle />
           <button onClick={() => { localStorage.removeItem("token"); window.location.href = "/login" }} style={{
-            background: "none", border: "1px solid #1e293b",
-            color: "#475569", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer",
+            background: "none", border: "1px solid var(--border)",
+            color: "var(--text-muted)", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer",
           }}>Logout</button>
         </div>
       </div>
@@ -723,8 +828,8 @@ function Dashboard() {
             return (
               <div key={printer.id} onClick={() => setSelectedPrinter(isSel ? null : printer)}
                 style={{
-                  background: isSel ? "#0d1f35" : "#0a1525",
-                  border: `1px solid ${isSel ? col : "#0f1f35"}`,
+                  background: isSel ? "var(--hover)" : "var(--card)",
+                  border: `1px solid ${isSel ? col : "var(--border)"}`,
                   borderRadius: 10, padding: "14px 16px",
                   cursor: "pointer", transition: "all 0.15s",
                   position: "relative",

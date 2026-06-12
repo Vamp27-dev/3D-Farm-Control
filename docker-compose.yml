@@ -28,6 +28,7 @@ services:
     environment:
       DATABASE_URL: postgresql://farmadmin:farm123@postgres:5432/elegoo_farm
       DEV_MODE: "true"
+      SECRET_KEY: "replace_this_with_a_long_random_string_in_production"
     ports:
       - "8000:8000"
     volumes:
