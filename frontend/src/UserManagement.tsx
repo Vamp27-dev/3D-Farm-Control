@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react"
-import { Link } from "react-router-dom"
 import { apiFetch } from "./App"
 
 function formatDate(iso: string) {
@@ -72,48 +71,48 @@ function UserModal({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60,
     }}>
       <div style={{
-        background: "#0a1628", border: "1px solid #1e3a5f",
+        background: "var(--card)", border: "1px solid #1e3a5f",
         borderRadius: 12, padding: 28, width: 400,
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f1f5f9" }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text)" }}>
             {isEdit ? "Edit User" : "Create User"}
           </h2>
-          <button onClick={onClose} style={{ background:"none",border:"none",color:"#475569",fontSize:18,cursor:"pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background:"none",border:"none",color:"var(--text-muted)",fontSize:18,cursor:"pointer" }}>✕</button>
         </div>
 
         {/* Username */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display:"block",fontSize:10,color:"#475569",marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>
+          <label style={{ display:"block",fontSize:10,color:"var(--text-muted)",marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>
             Username
           </label>
           <input value={username} onChange={e => setUsername(e.target.value)}
             placeholder="e.g. john_operator"
             style={{
-              width:"100%",padding:"8px 12px",background:"#0d1b2e",
-              border:"1px solid #1e293b",borderRadius:6,color:"#f1f5f9",
+              width:"100%",padding:"8px 12px",background:"var(--card2)",
+              border:"1px solid #1e293b",borderRadius:6,color:"var(--text)",
               fontSize:14,boxSizing:"border-box",outline:"none",
             }} />
         </div>
 
         {/* Password */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display:"block",fontSize:10,color:"#475569",marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>
+          <label style={{ display:"block",fontSize:10,color:"var(--text-muted)",marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>
             {isEdit ? "New Password (leave blank to keep)" : "Password"}
           </label>
           <input value={password} onChange={e => setPassword(e.target.value)}
             type="password" placeholder={isEdit ? "••••••••" : "Min 6 characters"}
             style={{
-              width:"100%",padding:"8px 12px",background:"#0d1b2e",
-              border:"1px solid #1e293b",borderRadius:6,color:"#f1f5f9",
+              width:"100%",padding:"8px 12px",background:"var(--card2)",
+              border:"1px solid #1e293b",borderRadius:6,color:"var(--text)",
               fontSize:14,boxSizing:"border-box",outline:"none",
             }} />
         </div>
 
         {/* Role picker */}
         <div style={{ marginBottom: 20 }}>
-          <label style={{ display:"block",fontSize:10,color:"#475569",marginBottom:8,textTransform:"uppercase",letterSpacing:1.5 }}>
+          <label style={{ display:"block",fontSize:10,color:"var(--text-muted)",marginBottom:8,textTransform:"uppercase",letterSpacing:1.5 }}>
             Role
           </label>
           <div style={{ display:"flex",gap:8 }}>
@@ -123,21 +122,21 @@ function UserModal({
               return (
                 <div key={r} onClick={() => setRole(r)} style={{
                   flex:1, padding:"12px 14px", borderRadius:8, cursor:"pointer",
-                  background: sel ? cfg.bg : "#0d1b2e",
+                  background: sel ? cfg.bg : "var(--card2)",
                   border:`1px solid ${sel ? cfg.color : "#1e293b"}`,
                   transition:"all 0.15s",
                 }}>
                   <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:4 }}>
                     <div style={{
                       width:14,height:14,borderRadius:"50%",flexShrink:0,
-                      border:`2px solid ${sel ? cfg.color : "#334155"}`,
+                      border:`2px solid ${sel ? cfg.color : "var(--text-dim)"}`,
                       background: sel ? cfg.color : "none",
                     }} />
                     <span style={{ fontSize:13,fontWeight:600,color: sel ? cfg.color : "#64748b" }}>
                       {cfg.label}
                     </span>
                   </div>
-                  <div style={{ fontSize:11,color:"#475569",lineHeight:1.4 }}>{cfg.desc}</div>
+                  <div style={{ fontSize:11,color:"var(--text-muted)",lineHeight:1.4 }}>{cfg.desc}</div>
                 </div>
               )
             })}
@@ -160,9 +159,9 @@ function UserModal({
           }}>Cancel</button>
           <button onClick={save} disabled={loading} style={{
             flex:2,padding:"8px 0",
-            background: loading ? "#0d1b2e" : "#10b981",
+            background: loading ? "var(--card2)" : "#10b981",
             border:"none",borderRadius:6,
-            color: loading ? "#334155" : "#fff",
+            color: loading ? "var(--text-dim)" : "#fff",
             cursor: loading ? "not-allowed":"pointer",
             fontWeight:600,fontSize:13,
           }}>
@@ -224,157 +223,98 @@ export default function UserManagement() {
   const viewers = users.filter(u => u.role === "viewer").length
 
   return (
-    <div style={{
-      minHeight:"100vh", background:"#070e1a",
-      color:"#f1f5f9", fontFamily:"'Inter', system-ui, sans-serif",
-    }}>
-      {/* Nav */}
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
+      {/* Top bar */}
       <div style={{
-        borderBottom:"1px solid #0f1f35", padding:"0 32px",
-        display:"flex", alignItems:"center", height:52, gap:0,
+        height: 52, borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: "0 28px",
+        justifyContent: "space-between", background: "var(--card)",
+        position: "sticky", top: 0, zIndex: 30,
       }}>
-        <span style={{ fontSize:13,fontWeight:700,color:"#10b981",marginRight:32,letterSpacing:0.5 }}>
-          FARM CONTROL
-        </span>
-        {[["Dashboard","/"],["Files","/files"],["Batches","/batches"],["Printers","/printers/manage"],["Users","/users/manage"]].map(([label,path]) => (
-          <Link key={label} to={path} style={{
-            fontSize:13,
-            color: label==="Users" ? "#f1f5f9" : "#475569",
-            textDecoration:"none", padding:"0 16px",
-            height:"100%", display:"flex", alignItems:"center",
-            fontWeight: label==="Users" ? 600 : 400,
-            borderBottom: label==="Users" ? "2px solid #3b82f6" : "2px solid transparent",
-          }}>{label}</Link>
-        ))}
-        <div style={{ marginLeft:"auto" }}>
-          <button onClick={() => { localStorage.removeItem("token"); window.location.href="/login" }}
-            style={{
-              background:"none",border:"1px solid #1e293b",
-              color:"#475569",borderRadius:6,padding:"6px 12px",fontSize:13,cursor:"pointer",
-            }}>Logout</button>
+        <div>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>User Management</span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{users.length} users</span>
         </div>
+        <button onClick={() => { setEditTarget(null); setShowModal(true) }} style={{
+          background: "#10b981", border: "none", color: "#fff",
+          borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+        }}>+ Create User</button>
       </div>
 
-      <div style={{ padding:"28px 32px" }}>
-
-        {/* Header */}
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24 }}>
-          <div>
-            <h1 style={{ margin:"0 0 4px",fontSize:24,fontWeight:700 }}>User Management</h1>
-            <p style={{ margin:0,fontSize:13,color:"#475569" }}>
-              Create, edit, and manage access for all farm users
-            </p>
-          </div>
-          <button onClick={() => { setEditTarget(null); setShowModal(true) }} style={{
-            background:"#10b981",border:"none",color:"#fff",
-            borderRadius:8,padding:"9px 20px",fontSize:14,fontWeight:600,cursor:"pointer",
-          }}>+ Create User</button>
-        </div>
-
+      <div style={{ padding: "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label:"Total Users", value:users.length, accent:"#475569" },
-            { label:"Admins",      value:admins,        accent:"#f59e0b" },
-            { label:"Viewers",     value:viewers,       accent:"#3b82f6" },
-          ].map(({ label,value,accent }) => (
-            <div key={label} style={{
-              background:"#0a1525",borderRadius:10,padding:"14px 20px",
-              border:`1px solid ${accent}22`,borderLeft:`3px solid ${accent}`,
-            }}>
-              <div style={{ fontSize:10,color:"#475569",textTransform:"uppercase",letterSpacing:1.5,marginBottom:6 }}>
-                {label}
-              </div>
-              <div style={{ fontSize:26,fontWeight:700,color:accent }}>{value}</div>
+            { label: "Total Users", value: users.length, accent: "#4a6080" },
+            { label: "Admins",      value: admins,        accent: "#f59e0b" },
+            { label: "Viewers",     value: viewers,       accent: "#2563eb" },
+          ].map(({ label, value, accent }) => (
+            <div key={label} style={{ background: "var(--card)", borderRadius: 10, padding: "14px 18px", border: "1px solid var(--border)", borderTop: `2px solid ${accent}` }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: accent }}>{value}</div>
             </div>
           ))}
         </div>
 
         {/* Role legend */}
-        <div style={{
-          background:"#0a1525",borderRadius:10,padding:"14px 20px",
-          border:"1px solid #0f1f35",marginBottom:20,
-          display:"flex",gap:32,
-        }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, padding: "14px 20px", border: "1px solid var(--border)", marginBottom: 20, display: "flex", gap: 32 }}>
           {Object.entries(ROLE_CFG).map(([r, cfg]) => (
-            <div key={r} style={{ display:"flex",alignItems:"flex-start",gap:10 }}>
+            <div key={r} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <RoleBadge role={r} />
-              <div style={{ fontSize:12,color:"#475569",paddingTop:1 }}>{cfg.desc}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", paddingTop: 1 }}>{cfg.desc}</div>
             </div>
           ))}
         </div>
 
-        {/* User table */}
-        <div style={{
-          background:"#0a1525",borderRadius:12,
-          border:"1px solid #0f1f35",overflow:"hidden",
-        }}>
-          {/* Header */}
+        {/* Table */}
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
           <div style={{
-            display:"grid",gridTemplateColumns:"1fr 1fr 120px",
-            padding:"10px 20px",borderBottom:"1px solid #0f1f35",
-            fontSize:10,color:"#334155",textTransform:"uppercase",letterSpacing:1.5,
+            display: "grid", gridTemplateColumns: "1fr 1fr 130px",
+            padding: "10px 20px", borderBottom: "1px solid var(--border)",
+            fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
           }}>
-            <div>Username</div>
-            <div>Role</div>
-            <div style={{ textAlign:"right" }}>Actions</div>
+            <div>Username</div><div>Role</div><div style={{ textAlign: "right" }}>Actions</div>
           </div>
 
           {users.length === 0 ? (
-            <div style={{ padding:"48px 0",textAlign:"center",color:"#334155" }}>No users found</div>
+            <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-dim)" }}>No users found</div>
           ) : (
             users.map((u, idx) => (
               <div key={u.id} style={{
-                display:"grid",gridTemplateColumns:"1fr 1fr 120px",
-                padding:"14px 20px",alignItems:"center",
-                borderBottom: idx < users.length-1 ? "1px solid #0a1422" : "none",
-                transition:"background 0.1s",
+                display: "grid", gridTemplateColumns: "1fr 1fr 130px",
+                padding: "14px 20px", alignItems: "center",
+                borderBottom: idx < users.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                transition: "background 0.1s",
               }}
-                onMouseEnter={e => (e.currentTarget.style.background="#0d1b2e")}
-                onMouseLeave={e => (e.currentTarget.style.background="transparent")}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                {/* Username */}
-                <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{
-                    width:32,height:32,borderRadius:"50%",
-                    background: ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.bg ?? "#1e293b",
-                    border:`1px solid ${ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.color ?? "#334155"}44`,
-                    display:"flex",alignItems:"center",justifyContent:"center",
-                    fontSize:13,fontWeight:700,
-                    color: ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.color ?? "#64748b",
-                    flexShrink:0,
-                  }}>
-                    {u.username.charAt(0).toUpperCase()}
-                  </div>
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.bg ?? "var(--card2)",
+                    border: `1px solid ${ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.color ?? "var(--border)"}44`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, fontWeight: 700, flexShrink: 0,
+                    color: ROLE_CFG[u.role as keyof typeof ROLE_CFG]?.color ?? "var(--text-muted)",
+                  }}>{u.username.charAt(0).toUpperCase()}</div>
                   <div>
-                    <div style={{ fontSize:14,fontWeight:600,color:"#e2e8f0" }}>{u.username}</div>
-                    <div style={{ fontSize:11,color:"#334155" }}>ID #{u.id}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{u.username}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-dim)" }}>ID #{u.id}</div>
                   </div>
                 </div>
-
-                {/* Role */}
                 <div><RoleBadge role={u.role} /></div>
-
-                {/* Actions */}
-                <div style={{ display:"flex",gap:6,justifyContent:"flex-end" }}>
+                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   <button onClick={() => { setEditTarget(u); setShowModal(true) }} style={{
-                    background:"#3b82f618",border:"1px solid #3b82f6",
-                    color:"#3b82f6",borderRadius:6,padding:"4px 10px",
-                    fontSize:12,fontWeight:600,cursor:"pointer",
+                    background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
+                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>Edit</button>
-                  <button
-                    onClick={() => deleteUser(u)}
-                    disabled={deletingId === u.id}
-                    style={{
-                      background:"none",border:"1px solid #ef4444",
-                      color:"#ef4444",borderRadius:6,padding:"4px 10px",
-                      fontSize:12,fontWeight:600,
-                      cursor: deletingId===u.id ? "not-allowed":"pointer",
-                      opacity: deletingId===u.id ? 0.5 : 1,
-                    }}
-                  >
-                    {deletingId===u.id ? "…" : "Delete"}
-                  </button>
+                  <button onClick={() => deleteUser(u)} disabled={deletingId === u.id} style={{
+                    background: "none", border: "1px solid #ef4444", color: "#ef4444",
+                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                    cursor: deletingId === u.id ? "not-allowed" : "pointer",
+                    opacity: deletingId === u.id ? 0.5 : 1,
+                  }}>{deletingId === u.id ? "…" : "Delete"}</button>
                 </div>
               </div>
             ))
@@ -383,11 +323,7 @@ export default function UserManagement() {
       </div>
 
       {showModal && (
-        <UserModal
-          user={editTarget}
-          onClose={() => { setShowModal(false); setEditTarget(null) }}
-          onSaved={() => { load(); setShowModal(false); setEditTarget(null) }}
-        />
+        <UserModal user={editTarget} onClose={() => { setShowModal(false); setEditTarget(null) }} onSaved={() => { load(); setShowModal(false); setEditTarget(null) }} />
       )}
     </div>
   )

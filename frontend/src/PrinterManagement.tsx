@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react"
-import { Link } from "react-router-dom"
 import { getUserRole } from "./utils/auth"
 import { apiFetch } from "./App"
 
@@ -84,16 +83,16 @@ function EditPrinterModal({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60,
     }}>
       <div style={{
-        background: "#0a1628", border: "1px solid #1e3a5f",
+        background: "var(--card)", border: "1px solid #1e3a5f",
         borderRadius: 12, padding: 28, width: 380,
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#f1f5f9" }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--text)" }}>
             Edit Printer
           </h2>
           <button onClick={onClose} style={{
-            background: "none", border: "none", color: "#475569",
+            background: "none", border: "none", color: "var(--text-muted)",
             fontSize: 18, cursor: "pointer", lineHeight: 1,
           }}>✕</button>
         </div>
@@ -101,7 +100,7 @@ function EditPrinterModal({
         {fields.map(({ label, value, set, placeholder }) => (
           <div key={label} style={{ marginBottom: 14 }}>
             <label style={{
-              display: "block", fontSize: 10, color: "#475569",
+              display: "block", fontSize: 10, color: "var(--text-muted)",
               marginBottom: 5, textTransform: "uppercase", letterSpacing: 1.5,
             }}>{label}</label>
             <input
@@ -110,8 +109,8 @@ function EditPrinterModal({
               placeholder={placeholder}
               style={{
                 width: "100%", padding: "8px 12px",
-                background: "#0d1b2e", border: "1px solid #1e293b",
-                borderRadius: 6, color: "#f1f5f9", fontSize: 14,
+                background: "var(--card2)", border: "1px solid #1e293b",
+                borderRadius: 6, color: "var(--text)", fontSize: 14,
                 boxSizing: "border-box", outline: "none",
               }}
             />
@@ -134,9 +133,9 @@ function EditPrinterModal({
           }}>Cancel</button>
           <button onClick={save} disabled={loading || !hasChanges} style={{
             flex: 2, padding: "8px 0",
-            background: loading || !hasChanges ? "#0d1b2e" : "#3b82f6",
+            background: loading || !hasChanges ? "var(--card2)" : "#3b82f6",
             border: "none", borderRadius: 6,
-            color: loading || !hasChanges ? "#334155" : "#fff",
+            color: loading || !hasChanges ? "var(--text-dim)" : "#fff",
             cursor: loading || !hasChanges ? "not-allowed" : "pointer",
             fontWeight: 600, fontSize: 13,
           }}>
@@ -216,215 +215,107 @@ export default function PrinterManagement() {
   const printing = printers.filter(p => p.status === "printing").length
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#070e1a",
-      color: "#f1f5f9", fontFamily: "'Inter', system-ui, sans-serif",
-    }}>
-      {/* Nav */}
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
+      {/* Top bar */}
       <div style={{
-        borderBottom: "1px solid #0f1f35", padding: "0 32px",
-        display: "flex", alignItems: "center", height: 52, gap: 0,
+        height: 52, borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: "0 28px",
+        justifyContent: "space-between", background: "var(--card)",
+        position: "sticky", top: 0, zIndex: 30,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#10b981", marginRight: 32, letterSpacing: 0.5 }}>
-          FARM CONTROL
-        </span>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"]].map(([label, path]) => (
-          <Link key={label} to={path} style={{
-            fontSize: 13,
-            color: label === "Printers" ? "#f1f5f9" : "#475569",
-            textDecoration: "none",
-            padding: "0 16px", height: "100%",
-            display: "flex", alignItems: "center",
-            fontWeight: label === "Printers" ? 600 : 400,
-            borderBottom: label === "Printers" ? "2px solid #3b82f6" : "2px solid transparent",
-          }}>{label}</Link>
-        ))}
-        {role === "admin" && (
-          <Link to="/users/manage" style={{
-            fontSize: 13, color: "#475569", textDecoration: "none",
-            padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
-          }}>Users</Link>
-        )}
-        <div style={{ marginLeft: "auto" }}>
-          <button onClick={() => { localStorage.removeItem("token"); window.location.href = "/login" }}
-            style={{
-              background: "none", border: "1px solid #1e293b",
-              color: "#475569", borderRadius: 6, padding: "6px 12px",
-              fontSize: 13, cursor: "pointer",
-            }}>Logout</button>
+        <div>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>Printer Management</span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{printers.length} printers</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or IP…"
+            style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: 200 }} />
         </div>
       </div>
 
-      <div style={{ padding: "28px 32px" }}>
-
-        {/* Header */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-          <div>
-            <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700 }}>Printer Management</h1>
-            <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>
-              View, rename, and update IP addresses for all printers
-            </p>
-          </div>
-          <Link to="/add-printer" style={{
-            background: "#10b981", color: "#fff", textDecoration: "none",
-            borderRadius: 8, padding: "9px 20px", fontSize: 14, fontWeight: 600,
-          }}>+ Add Printer</Link>
-        </div>
-
+      <div style={{ padding: "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Printers", value: total,    accent: "#475569" },
+            { label: "Total Printers", value: total,    accent: "#4a6080" },
             { label: "Online",         value: online,   accent: "#10b981" },
-            { label: "Printing Now",   value: printing, accent: "#3b82f6" },
+            { label: "Printing Now",   value: printing, accent: "#2563eb" },
           ].map(({ label, value, accent }) => (
-            <div key={label} style={{
-              background: "#0a1525", borderRadius: 10, padding: "14px 20px",
-              border: `1px solid ${accent}22`, borderLeft: `3px solid ${accent}`,
-            }}>
-              <div style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>
-                {label}
-              </div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: accent }}>{value}</div>
+            <div key={label} style={{ background: "var(--card)", borderRadius: 10, padding: "14px 18px", border: "1px solid var(--border)", borderTop: `2px solid ${accent}` }}>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: accent }}>{value}</div>
             </div>
           ))}
         </div>
 
-        {/* Search */}
-        <div style={{ marginBottom: 16 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or IP…"
-            style={{
-              width: 280, padding: "8px 14px",
-              background: "#0a1525", border: "1px solid #1e293b",
-              borderRadius: 8, color: "#f1f5f9", fontSize: 13, outline: "none",
-            }}
-          />
-        </div>
-
-        {/* Printer table */}
-        <div style={{
-          background: "#0a1525", borderRadius: 12,
-          border: "1px solid #0f1f35", overflow: "hidden",
-        }}>
-          {/* Table header */}
+        {/* Table */}
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
           <div style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1.8fr 1fr 1fr 120px",
-            padding: "10px 20px",
-            borderBottom: "1px solid #0f1f35",
-            fontSize: 10, color: "#334155",
-            textTransform: "uppercase", letterSpacing: 1.5,
+            display: "grid", gridTemplateColumns: "2fr 1.8fr 1fr 1fr 130px",
+            padding: "10px 20px", borderBottom: "1px solid var(--border)",
+            fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
           }}>
-            <div>Printer Name</div>
-            <div>IP Address</div>
-            <div>Type</div>
-            <div>Status</div>
-            <div style={{ textAlign: "right" }}>Actions</div>
+            <div>Printer Name</div><div>IP Address</div><div>Type</div><div>Status</div><div style={{ textAlign: "right" }}>Actions</div>
           </div>
 
           {filtered.length === 0 ? (
-            <div style={{ padding: "48px 0", textAlign: "center", color: "#334155" }}>
+            <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-dim)" }}>
               {search ? "No printers match your search" : "No printers added yet"}
             </div>
           ) : (
             filtered.map((printer, idx) => (
               <div key={printer.id} style={{
-                display: "grid",
-                gridTemplateColumns: "2fr 1.8fr 1fr 1fr 120px",
-                padding: "14px 20px",
-                alignItems: "center",
-                borderBottom: idx < filtered.length - 1 ? "1px solid #0a1422" : "none",
+                display: "grid", gridTemplateColumns: "2fr 1.8fr 1fr 1fr 130px",
+                padding: "14px 20px", alignItems: "center",
+                borderBottom: idx < filtered.length - 1 ? "1px solid var(--border-subtle)" : "none",
                 transition: "background 0.1s",
               }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#0d1b2e")}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                {/* Name */}
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>
-                    {printer.name}
-                  </div>
-                  {printer.location && (
-                    <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>
-                      📍 {printer.location}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{printer.name}</div>
+                  {printer.location && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>📍 {printer.location}</div>}
                 </div>
-
-                {/* IP */}
                 <div>
-                  <code style={{
-                    fontSize: 13, color: "#93c5fd",
-                    background: "#0d1b2e", padding: "2px 8px",
-                    borderRadius: 4, border: "1px solid #1e293b",
-                    fontFamily: "monospace",
-                  }}>
+                  <code style={{ fontSize: 12, color: "#93c5fd", background: "var(--card2)", padding: "2px 8px", borderRadius: 4, border: "1px solid var(--border)", fontFamily: "monospace" }}>
                     {printer.ip_address}
                   </code>
                 </div>
-
-                {/* Type */}
-                <div style={{ fontSize: 12, color: "#475569", textTransform: "capitalize" }}>
-                  {printer.type}
-                </div>
-
-                {/* Status */}
+                <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>{printer.type}</div>
                 <div>
                   <StatusDot status={printer.status} />
                   {printer.status === "printing" && (
-                    <div style={{ fontSize: 11, color: "#10b981", marginTop: 3 }}>
-                      {printer.progress.toFixed(1)}%
-                    </div>
+                    <div style={{ fontSize: 10, color: "#10b981", marginTop: 2 }}>{printer.progress.toFixed(1)}%</div>
                   )}
                 </div>
-
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                  <button
-                    onClick={() => setEditing(printer)}
-                    style={{
-                      background: "#3b82f618", border: "1px solid #3b82f6",
-                      color: "#3b82f6", borderRadius: 6,
-                      padding: "4px 10px", fontSize: 12,
-                      fontWeight: 600, cursor: "pointer",
-                    }}
-                  >Edit</button>
+                  <button onClick={() => setEditing(printer)} style={{
+                    background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
+                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  }}>Edit</button>
                   <button
                     onClick={() => deletePrinter(printer)}
                     disabled={deletingId === printer.id || printer.status === "printing"}
-                    title={printer.status === "printing" ? "Cannot delete while printing" : "Delete printer"}
+                    title={printer.status === "printing" ? "Cannot delete while printing" : ""}
                     style={{
                       background: "none",
-                      border: `1px solid ${printer.status === "printing" ? "#1e293b" : "#ef4444"}`,
-                      color: printer.status === "printing" ? "#334155" : "#ef4444",
-                      borderRadius: 6, padding: "4px 10px", fontSize: 12,
-                      fontWeight: 600,
+                      border: `1px solid ${printer.status === "printing" ? "var(--border)" : "#ef4444"}`,
+                      color: printer.status === "printing" ? "var(--text-dim)" : "#ef4444",
+                      borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
                       cursor: printer.status === "printing" ? "not-allowed" : "pointer",
                       opacity: deletingId === printer.id ? 0.5 : 1,
                     }}
-                  >
-                    {deletingId === printer.id ? "…" : "Delete"}
-                  </button>
+                  >{deletingId === printer.id ? "…" : "Delete"}</button>
                 </div>
               </div>
             ))
           )}
         </div>
-
-        <p style={{ marginTop: 12, fontSize: 11, color: "#1e293b" }}>
-          Changes to IP address take effect immediately — the poller will use the new IP on the next cycle (within 5 seconds).
-        </p>
       </div>
 
       {editing && (
-        <EditPrinterModal
-          printer={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { load(); setEditing(null) }}
-        />
+        <EditPrinterModal printer={editing} onClose={() => setEditing(null)} onSaved={() => { load(); setEditing(null) }} />
       )}
     </div>
   )

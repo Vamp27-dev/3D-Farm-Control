@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react"
-import { Link } from "react-router-dom"
 import { apiFetch } from "./App"
 import { getUserRole } from "./utils/auth"
 
@@ -17,14 +16,13 @@ function formatSize(bytes: number) {
 }
 
 export default function Files() {
+  const role = getUserRole()
   const [folders, setFolders]               = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [files, setFiles]                   = useState<FileItem[]>([])
-  const role = getUserRole()
   const [uploading, setUploading]           = useState(false)
   const [deletingId, setDeletingId]         = useState<number | null>(null)
 
-  // ── Folders ──────────────────────────────────────────────────────
   useEffect(() => {
     apiFetch("/files/folders").then(data => {
       if (Array.isArray(data)) {
@@ -34,7 +32,6 @@ export default function Files() {
     })
   }, [])
 
-  // ── Files ─────────────────────────────────────────────────────────
   const loadFiles = useCallback(async () => {
     if (!selectedFolder) return
     const data = await apiFetch(`/files/folder/${selectedFolder}`)
@@ -44,7 +41,6 @@ export default function Files() {
 
   useEffect(() => { loadFiles() }, [loadFiles])
 
-  // ── Upload ────────────────────────────────────────────────────────
   const uploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !selectedFolder) return
@@ -65,7 +61,6 @@ export default function Files() {
     e.target.value = ""
   }
 
-  // ── Delete ────────────────────────────────────────────────────────
   const deleteFile = async (fileId: number, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return
     setDeletingId(fileId)
@@ -82,151 +77,104 @@ export default function Files() {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#070e1a",
-      color: "#f1f5f9", fontFamily: "'Inter', system-ui, sans-serif",
-    }}>
-      {/* Nav */}
+    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Top bar */}
       <div style={{
-        borderBottom: "1px solid #0f1f35", padding: "0 32px",
-        display: "flex", alignItems: "center", height: 52, gap: 0,
+        height: 52, borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: "0 28px",
+        justifyContent: "space-between", background: "var(--card)",
+        position: "sticky", top: 0, zIndex: 30,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#10b981", marginRight: 32, letterSpacing: 0.5 }}>
-          FARM CONTROL
-        </span>
-        {[["Dashboard", "/"], ["Files", "/files"], ["Batches", "/batches"], ["Printers", "/printers/manage"]].map(([label, path]) => (
-          <Link key={label} to={path} style={{
-            fontSize: 13,
-            color: label === "Files" ? "#f1f5f9" : "#475569",
-            textDecoration: "none", padding: "0 16px",
-            height: "100%", display: "flex", alignItems: "center",
-            fontWeight: label === "Files" ? 600 : 400,
-            borderBottom: label === "Files" ? "2px solid #3b82f6" : "2px solid transparent",
-          }}>{label}</Link>
-        ))}
-        {role === "admin" && (
-          <Link to="/users/manage" style={{
-            fontSize: 13, color: "#475569", textDecoration: "none",
-            padding: "0 16px", height: "100%", display: "flex", alignItems: "center",
-          }}>Users</Link>
-        )}
+        <div>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>File Library</span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{files.length} files</span>
+        </div>
+        <label style={{
+          background: uploading ? "var(--card2)" : "#2563eb",
+          border: "none", color: uploading ? "var(--text-muted)" : "#fff",
+          borderRadius: 7, padding: "7px 16px", fontSize: 13,
+          fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          {uploading ? (
+            <>
+              <span style={{ display:"inline-block",width:12,height:12,border:"2px solid #475569",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
+              Uploading…
+            </>
+          ) : "↑ Upload File"}
+          <input type="file" accept=".gcode,.3mf,.g,.gco" hidden onChange={uploadFile} disabled={uploading} />
+        </label>
       </div>
 
-      <div style={{ padding: "28px 32px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-          <div>
-            <h1 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 700 }}>File Library</h1>
-            <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>
-              Upload and manage your G-code files
-            </p>
-          </div>
-          <label style={{
-            background: uploading ? "#0d1b2e" : "#10b981",
-            border: "none", color: uploading ? "#475569" : "#fff",
-            borderRadius: 8, padding: "9px 20px", fontSize: 14,
-            fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            {uploading ? (
-              <>
-                <span style={{
-                  display: "inline-block", width: 12, height: 12,
-                  border: "2px solid #334155", borderTopColor: "#10b981",
-                  borderRadius: "50%", animation: "spin 0.7s linear infinite",
-                }} />
-                Uploading…
-              </>
-            ) : "↑ Upload File"}
-            <input type="file" accept=".gcode,.3mf,.g,.gco" hidden onChange={uploadFile} disabled={uploading} />
-          </label>
+      <div style={{ padding: "24px 28px", display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
+        {/* Folders */}
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", padding: 16 }}>
+          <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Folders</div>
+          {folders.map(f => (
+            <div key={f.id} onClick={() => setSelectedFolder(f.id)} style={{
+              padding: "8px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 3,
+              fontSize: 13, fontWeight: selectedFolder === f.id ? 600 : 400,
+              background: selectedFolder === f.id ? "#2563eb18" : "none",
+              border: `1px solid ${selectedFolder === f.id ? "#2563eb44" : "transparent"}`,
+              color: selectedFolder === f.id ? "#2563eb" : "var(--text-muted)",
+              transition: "all 0.15s",
+            }}>{f.name}</div>
+          ))}
+          {folders.length === 0 && <div style={{ fontSize: 12, color: "var(--text-dim)" }}>No folders</div>}
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16 }}>
-
-          {/* Folders */}
-          <div style={{ background: "#0a1525", borderRadius: 12, border: "1px solid #0f1f35", padding: 16 }}>
-            <div style={{ fontSize: 10, color: "#334155", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>
-              Folders
-            </div>
-            {folders.map(f => (
-              <div key={f.id} onClick={() => setSelectedFolder(f.id)} style={{
-                padding: "8px 12px", borderRadius: 6, cursor: "pointer",
-                marginBottom: 4, fontSize: 13, fontWeight: 500,
-                background: selectedFolder === f.id ? "#3b82f6" : "none",
-                color: selectedFolder === f.id ? "#fff" : "#64748b",
-                transition: "all 0.15s",
-              }}>{f.name}</div>
-            ))}
-            {folders.length === 0 && (
-              <div style={{ fontSize: 12, color: "#334155" }}>No folders yet</div>
-            )}
+        {/* Files table */}
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 80px 80px",
+            padding: "10px 20px", borderBottom: "1px solid var(--border)",
+            fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
+          }}>
+            <div>Filename</div><div>Size</div><div style={{ textAlign: "right" }}>Action</div>
           </div>
 
-          {/* Files */}
-          <div style={{ background: "#0a1525", borderRadius: 12, border: "1px solid #0f1f35", overflow: "hidden" }}>
-            {/* Header */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 80px 80px",
-              padding: "10px 20px", borderBottom: "1px solid #0f1f35",
-              fontSize: 10, color: "#334155", textTransform: "uppercase", letterSpacing: 1.5,
-            }}>
-              <div>Filename</div>
-              <div>Size</div>
-              <div style={{ textAlign: "right" }}>Action</div>
+          {files.length === 0 ? (
+            <div style={{ padding: "64px 0", textAlign: "center", color: "var(--text-dim)" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>📁</div>
+              <div style={{ fontSize: 14, marginBottom: 6, color: "var(--text-muted)" }}>No files here</div>
+              <div style={{ fontSize: 12 }}>Upload a .gcode or .3mf file to get started</div>
             </div>
-
-            {files.length === 0 ? (
-              <div style={{ padding: "48px 0", textAlign: "center", color: "#334155" }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>📁</div>
-                <div>No files in this folder</div>
-                <div style={{ fontSize: 12, marginTop: 6 }}>Upload a .gcode or .3mf file to get started</div>
-              </div>
-            ) : (
-              files.map((file, idx) => (
-                <div key={file.id} style={{
-                  display: "grid", gridTemplateColumns: "1fr 80px 80px",
-                  padding: "13px 20px", alignItems: "center",
-                  borderBottom: idx < files.length - 1 ? "1px solid #0a1422" : "none",
-                  transition: "background 0.1s",
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "#0d1b2e")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500 }}>
-                      {file.original_name}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#334155", marginTop: 2 }}>
-                      {file.extension.toUpperCase()}
-                    </div>
+          ) : (
+            files.map((file, idx) => (
+              <div key={file.id} style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 80px",
+                padding: "13px 20px", alignItems: "center",
+                borderBottom: idx < files.length - 1 ? "1px solid var(--border-subtle)" : "none",
+                transition: "background 0.1s",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <div>
+                  <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {file.original_name}
                   </div>
-
-                  <div style={{ fontSize: 12, color: "#475569" }}>
-                    {formatSize(file.file_size)}
-                  </div>
-
-                  {/* ✅ Print button REMOVED — use Batches page to print */}
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => deleteFile(file.id, file.original_name)}
-                      disabled={deletingId === file.id}
-                      style={{
-                        background: "none",
-                        border: "1px solid #ef4444",
-                        color: "#ef4444", borderRadius: 6,
-                        padding: "4px 10px", fontSize: 12,
-                        fontWeight: 600, cursor: deletingId === file.id ? "not-allowed" : "pointer",
-                        opacity: deletingId === file.id ? 0.5 : 1,
-                      }}
-                    >
-                      {deletingId === file.id ? "…" : "Delete"}
-                    </button>
-                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>{file.extension.toUpperCase()}</div>
                 </div>
-              ))
-            )}
-          </div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{formatSize(file.file_size)}</div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => deleteFile(file.id, file.original_name)}
+                    disabled={deletingId === file.id}
+                    style={{
+                      background: "none", border: "1px solid #ef4444", color: "#ef4444",
+                      borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                      cursor: deletingId === file.id ? "not-allowed" : "pointer",
+                      opacity: deletingId === file.id ? 0.5 : 1,
+                    }}
+                  >{deletingId === file.id ? "…" : "Delete"}</button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

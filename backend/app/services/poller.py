@@ -157,8 +157,9 @@ def poller_loop():
                             printer.progress = 0
 
                     else:
-                        printer.status   = "offline"
-                        printer.progress = 0
+                        printer.status       = "offline"
+                        printer.progress     = 0
+                        printer.current_file = None  # ✅ clear stale filename when offline
 
                 # ── CENTAURI — handled by centauri_ws.py ──────────
                 elif printer.type == "centauri":
