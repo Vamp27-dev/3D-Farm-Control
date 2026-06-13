@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
-import { getUserRole } from "./utils/auth"
 import { apiFetch } from "./App"
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 interface Printer {
   id: number
@@ -172,7 +171,6 @@ function StatusDot({ status }: { status: string }) {
 // ─── Printer Management Page ──────────────────────────────────────────────────
 
 export default function PrinterManagement() {
-  const role = getUserRole()
   const [printers, setPrinters]     = useState<Printer[]>([])
   const [editing, setEditing]       = useState<Printer | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)

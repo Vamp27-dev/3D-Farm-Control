@@ -1,15 +1,8 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  })
-}
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 interface UserItem { id: number; username: string; role: string }
 
@@ -191,7 +184,6 @@ function RoleBadge({ role }: { role: string }) {
 
 export default function UserManagement() {
   const [users, setUsers]         = useState<UserItem[]>([])
-  const [modal, setModal]         = useState<UserItem | null | "new">(undefined as any)
   const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<UserItem | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)

@@ -10,7 +10,8 @@ services:
       POSTGRES_PASSWORD: farm123
       POSTGRES_DB: elegoo_farm
     # No ports exposed to host — backend talks to postgres internally
-    # This avoids conflicts with any Postgres already running on Windows
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # ✅ persist DB across restarts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U farmadmin -d elegoo_farm"]
       interval: 5s
@@ -28,11 +29,13 @@ services:
     environment:
       DATABASE_URL: postgresql://farmadmin:farm123@postgres:5432/elegoo_farm
       DEV_MODE: "true"
-      SECRET_KEY: "replace_this_with_a_long_random_string_in_production"
+      SECRET_KEY: "4f5f3bd39e4b10bf37ed1227c0673719216d990ff63f4f1a0b3d8ea282e43c64"
     ports:
-      - "8000:8000"
+      - "0.0.0.0:8000:8000"   # ✅ bind to ALL network interfaces
     volumes:
       - file_storage:/app/storage
+      - ./frontend/dist:/app/frontend_dist      # ✅ serve built frontend from backend
 
 volumes:
   file_storage:
+  postgres_data:     # ✅ postgres data persists across docker-compose down

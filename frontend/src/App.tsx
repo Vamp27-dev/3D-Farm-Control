@@ -11,7 +11,10 @@ import UserManagement from "./UserManagement"
 import PrintHistory from "./PrintHistory"
 import { useTheme } from "./theme"
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+// ✅ Relative URL: works from any IP/network automatically
+// When served via Docker (production), frontend and backend are on the same host+port
+// When running dev (npm run dev), set VITE_API_BASE=http://192.168.11.XXX:8000 in .env
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 export const apiFetch = async (url: string, options: any = {}) => {
   const token = localStorage.getItem("token")
@@ -616,13 +619,13 @@ function App() {
       `}</style>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/"                element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><Dashboard printers={printers} loadPrinters={loadPrinters} /></AppShell></ProtectedRoute>} />
-        <Route path="/files"           element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><Files /></AppShell></ProtectedRoute>} />
-        <Route path="/add-printer"     element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><AddPrinter /></AppShell></ProtectedRoute>} />
-        <Route path="/batches"         element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><Batches /></AppShell></ProtectedRoute>} />
-        <Route path="/printers/manage" element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><PrinterManagement /></AppShell></ProtectedRoute>} />
-        <Route path="/users/manage"    element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><UserManagement /></AppShell></ProtectedRoute>} />
-        <Route path="/history"         element={<ProtectedRoute><AppShell printers={printers} loadPrinters={loadPrinters}><PrintHistory /></AppShell></ProtectedRoute>} />
+        <Route path="/"                element={<ProtectedRoute><AppShell printers={printers}><Dashboard printers={printers} loadPrinters={loadPrinters} /></AppShell></ProtectedRoute>} />
+        <Route path="/files"           element={<ProtectedRoute><AppShell printers={printers}><Files /></AppShell></ProtectedRoute>} />
+        <Route path="/add-printer"     element={<ProtectedRoute><AppShell printers={printers}><AddPrinter /></AppShell></ProtectedRoute>} />
+        <Route path="/batches"         element={<ProtectedRoute><AppShell printers={printers}><Batches /></AppShell></ProtectedRoute>} />
+        <Route path="/printers/manage" element={<ProtectedRoute><AppShell printers={printers}><PrinterManagement /></AppShell></ProtectedRoute>} />
+        <Route path="/users/manage"    element={<ProtectedRoute><AppShell printers={printers}><UserManagement /></AppShell></ProtectedRoute>} />
+        <Route path="/history"         element={<ProtectedRoute><AppShell printers={printers}><PrintHistory /></AppShell></ProtectedRoute>} />
       </Routes>
     </>
   )
@@ -630,8 +633,8 @@ function App() {
 
 // ─── AppShell — sidebar + content layout ─────────────────────────────────────
 
-function AppShell({ children, printers, loadPrinters }: {
-  children: React.ReactNode; printers: Printer[]; loadPrinters: () => void
+function AppShell({ children, printers }: {
+  children: React.ReactNode; printers: Printer[]
 }) {
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:S.bg, fontFamily:"'Inter',system-ui,sans-serif" }}>
@@ -753,7 +756,7 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
               {label:"Today's Prints",  value:analytics.today_prints,  unit:"jobs",    color:"#10b981"},
               {label:"This Week",       value:analytics.week_prints,   unit:"jobs",    color:"#2563eb"},
               {label:"Avg Print Time",  value:analytics.avg_print_time_minutes?`${analytics.avg_print_time_minutes}m`:"—", unit:"minutes", color:"#8b5cf6"},
-            ].map(({label,value,unit,color})=>(
+            ].map(({label,value,color})=>(
               <div key={label} style={{
                 background:S.card,borderRadius:10,padding:"14px 20px",
                 border:`1px solid ${S.border}`,

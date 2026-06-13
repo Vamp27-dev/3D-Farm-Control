@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
-import { getUserRole } from "./utils/auth"
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 interface Folder  { id: number; name: string }
 interface FileItem {
@@ -16,7 +15,6 @@ function formatSize(bytes: number) {
 }
 
 export default function Files() {
-  const role = getUserRole()
   const [folders, setFolders]               = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [files, setFiles]                   = useState<FileItem[]>([])

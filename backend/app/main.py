@@ -40,20 +40,16 @@ app = FastAPI()
 # "*" fails when the backend crashes before sending headers.
 # Listing origins explicitly also fixes preflight requests.
 # ==========================
+# ✅ CORS: wildcard origin, internal network only
+# allow_credentials=False + allow_origins=["*"] is correct for token-based auth
+# The JWT is sent in Authorization header (not a cookie), so credentials=False is fine
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "*",                          # keep for flexibility
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "http://192.168.68.151:3000",
-        "http://192.168.68.151:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -87,9 +83,33 @@ def startup_event():
 # ==========================
 # Root test
 # ==========================
-@app.get("/")
-def root():
-    return {"message": "Farm Backend Running 🚀"}
+@app.get("/health")
+def health():
+    return {"status": "ok", "message": "Farm Backend Running 🚀"}
+
+# ✅ Serve built frontend — works from ANY IP the server has
+# Both 192.168.11.x and 192.168.68.x users get the same app
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+FRONTEND_DIST = "/app/frontend_dist"  # mounted via docker-compose volume
+
+if os.path.exists(FRONTEND_DIST):
+    # Serve static assets
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+
+    # Catch-all: serve index.html for any non-API route (React Router needs this)
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        # Don't intercept API routes
+        if full_path.startswith(("printers", "batches", "files", "auth", "users", "analytics")):
+            return {"detail": "Not found"}
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {"message": "Farm Backend Running 🚀 — serve frontend by mounting dist/"}
 
 
 # ==========================

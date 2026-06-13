@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
-import { getUserRole } from "./utils/auth"
+
+const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ function CreateBatchModal({
     try {
       const token = localStorage.getItem("token")
       const raw = await fetch(
-        `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000"}/batches/`,
+        `${API_BASE}/batches/`,
         {
           method: "POST",
           headers: {
@@ -477,7 +478,6 @@ function CreateBatchModal({
 // ─── Batches Page ─────────────────────────────────────────────────────────────
 
 function Batches() {
-  const role = getUserRole()
   const [batches, setBatches]           = useState<Batch[]>([])
   const [showCreate, setShowCreate]     = useState(false)
   const [expandedId, setExpandedId]     = useState<number | null>(null)
@@ -509,7 +509,7 @@ function Batches() {
     try {
       const token = localStorage.getItem("token")
       const raw = await fetch(
-        `${import.meta.env.VITE_API_BASE ?? "http://localhost:8000"}/batches/${id}/start`,
+        `${API_BASE}/batches/${id}/start`,
         {
           method: "POST",
           headers: {
