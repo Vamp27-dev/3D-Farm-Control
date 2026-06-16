@@ -24,9 +24,31 @@ from app.models.printer import Printer
 
 
 # ==========================
-# Create tables
+# Create tables + safe migrations
 # ==========================
 Base.metadata.create_all(bind=engine)
+
+# Safe column additions — runs every startup, skips if columns already exist
+def run_migrations():
+    migrations = [
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS bed_temp FLOAT",
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS bed_target FLOAT",
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS extruder_temp FLOAT",
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS extruder_target FLOAT",
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS eta_seconds INTEGER",
+        # Clear stale filenames on offline printers at startup
+        "UPDATE printers SET current_file = NULL, progress = 0 WHERE status = 'offline'",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+            except Exception as e:
+                print(f"Migration skipped: {e}")
+        conn.commit()
+
+from sqlalchemy import text
+run_migrations()
 
 
 # ==========================

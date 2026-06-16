@@ -8,6 +8,7 @@ from typing import Optional
 import httpx
 
 from app.core.database import get_db
+from app.models.job_history import JobHistory
 from app.models.printer import Printer
 from app.models.tag import Tag
 from app.models.batch_printer import BatchPrinter
@@ -163,24 +164,46 @@ async def cancel_print(printer_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         printer_error = str(e)
 
-    # Always clean up DB
+    # Always clean up DB and write history
     job = db.query(BatchPrinter).filter(
         BatchPrinter.printer_id == printer_id,
         BatchPrinter.status == "printing"
     ).first()
+
     if job:
-        job.status = "cancelled"
+        job.status       = "cancelled"
         job.completed_at = datetime.utcnow()
 
-    printer.status = "idle"
-    printer.progress = 0
+        # ✅ Write to history so cancelled jobs appear in Print History
+        duration = (
+            int((job.completed_at - job.started_at).total_seconds())
+            if job.started_at else 0
+        )
+        file_id = None
+        try:
+            file_id = job.batch.file_id
+        except Exception:
+            pass
+
+        history = JobHistory(
+            printer_id=printer_id,
+            batch_id=job.batch_id,
+            file_id=file_id,
+            status="cancelled",
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            duration_seconds=duration,
+        )
+        db.add(history)
+
+    printer.status       = "idle"
+    printer.progress     = 0
     printer.current_file = None
     db.commit()
 
-    # Return success even if printer had a hiccup — the cancel happened
     return {
         "message": "Print cancelled",
-        "warning": printer_error  # None if all good, message if printer was unreachable
+        "warning": printer_error,
     }
 
 

@@ -29,33 +29,40 @@ def _base_stats(db: Session):
         JobHistory.completed_at >= week_start
     ).count()
 
-    success = db.query(JobHistory).filter(JobHistory.status == "success").count()
-    failed  = db.query(JobHistory).filter(JobHistory.status == "failed").count()
-    total_jobs = success + failed
-    success_rate = round((success / total_jobs) * 100, 2) if total_jobs > 0 else 0
+    # ✅ Count all terminal statuses
+    success   = db.query(JobHistory).filter(JobHistory.status == "success").count()
+    failed    = db.query(JobHistory).filter(JobHistory.status == "failed").count()
+    cancelled = db.query(JobHistory).filter(JobHistory.status == "cancelled").count()
 
+    # Success rate = success / (success + failed) — exclude cancelled
+    countable = success + failed
+    success_rate = round((success / countable) * 100, 1) if countable > 0 else 0
+
+    # Average print time from successful jobs only
     durations = db.query(JobHistory.duration_seconds).filter(
+        JobHistory.status == "success",
         JobHistory.duration_seconds != None,
         JobHistory.duration_seconds > 0
     ).all()
     avg_print_time = None
     if durations:
-        avg_print_time = round(sum(d[0] for d in durations) / len(durations) / 60, 2)
+        avg_print_time = round(sum(d[0] for d in durations) / len(durations) / 60, 1)
 
     active_printers = db.query(Printer).filter(Printer.status == "printing").count()
 
     return {
-        "today_prints":          today_prints,
-        "week_prints":           week_prints,
-        "success_rate":          success_rate,
+        "today_prints":           today_prints,
+        "week_prints":            week_prints,
+        "success_rate":           success_rate,
         "avg_print_time_minutes": avg_print_time,
-        "active_printers":       active_printers,
-        "total_success":         success,
-        "total_failed":          failed,
+        "active_printers":        active_printers,
+        "total_success":          success,
+        "total_failed":           failed,
+        "total_cancelled":        cancelled,
     }
 
 
-# ── main analytics endpoint (all three paths) ─────────────────────────────────
+# ── main analytics endpoint ───────────────────────────────────────────────────
 
 @router.get("")
 @router.get("/")
@@ -64,19 +71,15 @@ def production_stats(db: Session = Depends(get_db)):
     return _base_stats(db)
 
 
-# ── print history (for History page) ─────────────────────────────────────────
+# ── print history ─────────────────────────────────────────────────────────────
 
 @router.get("/history")
-def print_history(
-    limit:  int = 100,
-    offset: int = 0,
-    db: Session = Depends(get_db)
-):
+def print_history(limit: int = 100, offset: int = 0, db: Session = Depends(get_db)):
     total = db.query(JobHistory).count()
 
     rows = (
         db.query(JobHistory)
-        .order_by(JobHistory.completed_at.desc().nullslast(), JobHistory.id.desc())
+        .order_by(JobHistory.id.desc())
         .offset(offset)
         .limit(limit)
         .all()
@@ -88,7 +91,7 @@ def print_history(
         result.append({
             "id":               r.id,
             "printer_id":       r.printer_id,
-            "printer_name":     printer.name if printer else "Unknown",
+            "printer_name":     printer.name if printer else f"Printer #{r.printer_id}",
             "batch_id":         r.batch_id,
             "status":           r.status,
             "started_at":       r.started_at.isoformat() if r.started_at else None,
@@ -105,24 +108,23 @@ def print_history(
 def export_csv(db: Session = Depends(get_db)):
     rows = (
         db.query(JobHistory)
-        .order_by(JobHistory.completed_at.desc().nullslast())
+        .order_by(JobHistory.id.desc())
         .all()
     )
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
-        "Job ID", "Printer ID", "Printer Name", "Batch ID",
-        "Status", "Started At (IST)", "Completed At (IST)", "Duration (min)"
+        "Job ID", "Printer Name", "Batch ID",
+        "Status", "Started At (IST)", "Completed At (IST)",
+        "Duration (min)"
     ])
 
     for r in rows:
         printer = db.query(Printer).filter(Printer.id == r.printer_id).first()
 
         def to_ist(dt):
-            if not dt:
-                return ""
-            # Add 5:30 offset for IST
+            if not dt: return ""
             ist = dt + timedelta(hours=5, minutes=30)
             return ist.strftime("%d %b %Y %I:%M %p")
 
@@ -130,8 +132,7 @@ def export_csv(db: Session = Depends(get_db)):
 
         writer.writerow([
             r.id,
-            r.printer_id,
-            printer.name if printer else "Unknown",
+            printer.name if printer else f"Printer #{r.printer_id}",
             r.batch_id,
             r.status,
             to_ist(r.started_at),
@@ -141,7 +142,6 @@ def export_csv(db: Session = Depends(get_db)):
 
     output.seek(0)
     filename = f"farm_history_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.csv"
-
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
