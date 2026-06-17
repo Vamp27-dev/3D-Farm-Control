@@ -7,10 +7,23 @@ const API_BASE = import.meta.env.VITE_API_BASE || ""
 
 interface Batch {
   id: number
+  serial: number
   name: string
   file_name: string
   status: string
+  archived: boolean
   created_at: string
+}
+
+interface BatchPrinterJob {
+  job_id: number
+  printer_id: number
+  printer_name: string
+  printer_status: string
+  job_status: string
+  progress: number | null
+  started_at: string | null
+  completed_at: string | null
 }
 
 interface Printer {
@@ -55,6 +68,28 @@ function StatusPill({ status }: { status: string }) {
   )
 }
 
+const JOB_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
+  printing:             { bg: "#10b98118", color: "#10b981" },
+  completed:            { bg: "#10b98118", color: "#10b981" },
+  queued:               { bg: "#f59e0b18", color: "#f59e0b" },
+  waiting_confirmation: { bg: "#f59e0b18", color: "#f59e0b" },
+  cancelled:            { bg: "#ef444418", color: "#ef4444" },
+  failed:               { bg: "#ef444418", color: "#ef4444" },
+  skipped:              { bg: "#8b5cf618", color: "#8b5cf6" },
+}
+
+function JobStatusPill({ status }: { status: string }) {
+  const { bg, color } = JOB_STATUS_COLOR[status] ?? { bg: "#64748b18", color: "#64748b" }
+  return (
+    <span style={{
+      background: bg, color,
+      border: `1px solid ${color}44`,
+      borderRadius: 4, padding: "2px 8px",
+      fontSize: 10, fontWeight: 600, textTransform: "capitalize", whiteSpace: "nowrap",
+    }}>{status.replace("_", " ")}</span>
+  )
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -83,6 +118,7 @@ function CreateBatchModal({
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [selectedFile, setSelectedFile]   = useState<number | null>(null)
   const [selectedPrinters, setSelectedPrinters] = useState<number[]>([])
+  const [batchName, setBatchName]         = useState("")
   const [loading, setLoading]             = useState(false)
   const [step, setStep]                   = useState<1 | 2>(1)  // 1=file, 2=printers
 
@@ -138,6 +174,7 @@ function CreateBatchModal({
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
+            name: batchName.trim() || null,
             file_id: selectedFile,
             printer_ids: selectedPrinters,
           }),
@@ -236,6 +273,24 @@ function CreateBatchModal({
           {/* ── STEP 1: File ── */}
           {step === 1 && (
             <div>
+              {/* ✅ Batch name field — optional, helps identify which job runs where */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 10, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1.5 }}>
+                  Batch Name <span style={{ color: "var(--text-dim)", textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+                </label>
+                <input
+                  value={batchName}
+                  onChange={e => setBatchName(e.target.value)}
+                  placeholder="e.g. Phone Cases — Order #4521"
+                  style={{
+                    width: "100%", padding: "9px 12px",
+                    background: "var(--card2)", border: "1px solid var(--border)",
+                    borderRadius: 6, color: "var(--text)", fontSize: 14,
+                    boxSizing: "border-box", outline: "none",
+                  }}
+                />
+              </div>
+
               {/* Folder tabs */}
               {folders.length > 0 && (
                 <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -482,6 +537,7 @@ function Batches() {
   const [showCreate, setShowCreate]     = useState(false)
   const [expandedId, setExpandedId]     = useState<number | null>(null)
   const [summaries, setSummaries]       = useState<Record<number, any>>({})
+  const [batchPrinters, setBatchPrinters] = useState<Record<number, BatchPrinterJob[]>>({})
   const [startingBatchId, setStartingBatchId] = useState<number | null>(null)
 
   const loadBatches = useCallback(async () => {
@@ -541,6 +597,10 @@ function Batches() {
     if (!summaries[id]) {
       const s = await apiFetch(`/batches/${id}/summary`)
       if (s) setSummaries(prev => ({ ...prev, [id]: s }))
+    }
+    if (!batchPrinters[id]) {
+      const p = await apiFetch(`/batches/${id}/printers`)
+      if (p) setBatchPrinters(prev => ({ ...prev, [id]: p }))
     }
   }
 
@@ -618,6 +678,13 @@ function Batches() {
                       transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
                       transition: "transform 0.2s", flexShrink: 0,
                     }}>▶</div>
+                    {/* ✅ Serial number badge instead of raw DB id */}
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                      background: "var(--card2)", border: "1px solid var(--border)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700, color: "var(--text-muted)",
+                    }}>#{batch.serial}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3 }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{batch.name}</span>
@@ -671,7 +738,7 @@ function Batches() {
                       background: "var(--card2)",
                     }}>
                       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Summary</div>
-                      <div style={{ display: "flex", gap: 24 }}>
+                      <div style={{ display: "flex", gap: 24, marginBottom: 16 }}>
                         {[
                           { label: "Total",     value: summary.total,     color: "#64748b" },
                           { label: "Completed", value: summary.completed, color: "#10b981" },
@@ -685,6 +752,34 @@ function Batches() {
                           </div>
                         ))}
                       </div>
+
+                      {/* ✅ Printer breakdown — which printers got this batch + their status */}
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
+                        Printers in this Batch
+                      </div>
+                      {!batchPrinters[batch.id] ? (
+                        <div style={{ fontSize: 12, color: "var(--text-dim)" }}>Loading…</div>
+                      ) : batchPrinters[batch.id].length === 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--text-dim)" }}>No printers found</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {batchPrinters[batch.id].map(p => (
+                            <div key={p.job_id} style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              background: "var(--card)", border: "1px solid var(--border)",
+                              borderRadius: 7, padding: "8px 14px",
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{p.printer_name}</span>
+                                {p.progress !== null && (
+                                  <span style={{ fontSize: 11, color: "#10b981" }}>{p.progress.toFixed(1)}%</span>
+                                )}
+                              </div>
+                              <JobStatusPill status={p.job_status} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

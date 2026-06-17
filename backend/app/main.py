@@ -36,6 +36,8 @@ def run_migrations():
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS extruder_temp FLOAT",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS extruder_target FLOAT",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS eta_seconds INTEGER",
+        "ALTER TABLE batches ADD COLUMN IF NOT EXISTS name VARCHAR",
+        "ALTER TABLE batches ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE",
         # Clear stale filenames on offline printers at startup
         "UPDATE printers SET current_file = NULL, progress = 0 WHERE status = 'offline'",
     ]

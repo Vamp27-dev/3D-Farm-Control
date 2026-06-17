@@ -44,7 +44,7 @@ interface Printer {
   extruder_temp?: number | null; extruder_target?: number | null
   eta_seconds?: number | null
 }
-interface QueueItem { id: number; printer_id: number; batch_id: number; status: string; position: number }
+interface QueueItem { id: number; printer_id: number; batch_id: number; batch_name: string; status: string; position: number }
 interface Analytics {
   today_prints: number; week_prints: number; success_rate: number
   avg_print_time_minutes: number | null; active_printers: number
@@ -387,7 +387,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
               }}>
                 <div>
                   <div style={{ fontSize: 11, color: S.muted }}>Position {idx+1}</div>
-                  <div style={{ fontSize: 13, color: S.text, fontWeight: 500 }}>Job #{job.id}</div>
+                  <div style={{ fontSize: 13, color: S.text, fontWeight: 500 }}>Batch — {job.batch_name}</div>
                   <div style={{ fontSize: 10, marginTop: 2, color: job.status === "waiting_confirmation" ? "#f59e0b" : S.muted }}>
                     {job.status}
                   </div>

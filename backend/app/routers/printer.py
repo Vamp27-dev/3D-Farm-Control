@@ -201,6 +201,11 @@ async def cancel_print(printer_id: int, db: Session = Depends(get_db)):
     printer.current_file = None
     db.commit()
 
+    # ✅ Check if batch should auto-archive (all jobs terminal)
+    if job:
+        from app.routers.batch import check_and_archive_batch
+        check_and_archive_batch(db, job.batch_id)
+
     return {
         "message": "Print cancelled",
         "warning": printer_error,
@@ -272,10 +277,24 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{printer_id}/queue")
 def get_printer_queue(printer_id: int, db: Session = Depends(get_db)):
-    return db.query(BatchPrinter).filter(
+    jobs = db.query(BatchPrinter).filter(
         BatchPrinter.printer_id == printer_id,
         BatchPrinter.status.in_(["queued", "waiting_confirmation"]),
     ).all()
+
+    # ✅ Include batch name so frontend can show "Batch — {name}" instead of raw IDs
+    result = []
+    for job in jobs:
+        batch = db.query(Batch).filter(Batch.id == job.batch_id).first()
+        result.append({
+            "id": job.id,
+            "printer_id": job.printer_id,
+            "batch_id": job.batch_id,
+            "batch_name": batch.name if batch else f"Batch {job.batch_id}",
+            "status": job.status,
+            "position": job.position,
+        })
+    return result
 
 
 # ==============================

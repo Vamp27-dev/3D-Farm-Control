@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -8,16 +8,18 @@ from app.core.database import Base
 class Batch(Base):
     __tablename__ = "batches"
 
-    id = Column(Integer, primary_key=True, index=True)
-    file_id = Column(Integer, ForeignKey("files.id"), nullable=False)
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String, nullable=True)   # ✅ custom name, optional
+    file_id    = Column(Integer, ForeignKey("files.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship to File
+    # ✅ archived = True once every printer job reaches a terminal state
+    # (completed / cancelled / failed). Keeps the batch out of the active
+    # Batches list but preserves it for History / auditing.
+    archived = Column(Boolean, default=False)
+
     file = relationship("File")
 
-    # ✅ FIX: Only ONE relationship to BatchPrinter — removed duplicate `printer_jobs`
-    # Both `printers` and `printer_jobs` were pointing to the same thing, causing
-    # SQLAlchemy's "overlapping relationship" warning
     printer_jobs = relationship(
         "BatchPrinter",
         back_populates="batch",

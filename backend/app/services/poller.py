@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.models.printer import Printer
 from app.models.batch_printer import BatchPrinter
 from app.models.job_history import JobHistory
+from app.models.batch import Batch
 
 
 DEV_MODE = os.getenv("DEV_MODE", "true") == "true"
@@ -132,8 +133,17 @@ def complete_job(db, printer):
     if not job:
         return
 
+    batch_id   = job.batch_id
     job.status = "completed"
     write_history(db, printer, job, "success")
+
+    # ✅ Archive the batch (not delete) once every job in it is terminal —
+    # keeps it visible in History for production tracking
+    try:
+        from app.routers.batch import check_and_archive_batch
+        check_and_archive_batch(db, batch_id)
+    except Exception as e:
+        print(f"[Poller] Archive check failed: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -208,6 +218,11 @@ def poller_loop():
                             if job:
                                 job.status = "failed"
                                 write_history(db, printer, job, "failed")
+                                try:
+                                    from app.routers.batch import check_and_archive_batch
+                                    check_and_archive_batch(db, job.batch_id)
+                                except Exception as e:
+                                    print(f"[Poller] Archive check failed: {e}")
 
                         printer.status       = "offline"
                         printer.progress     = 0
