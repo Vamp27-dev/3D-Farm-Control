@@ -332,3 +332,52 @@ def delete_printer(printer_id: int, db: Session = Depends(get_db)):
     db.delete(printer)
     db.commit()
     return {"message": "Printer deleted successfully"}
+
+
+# ══════════════════════════════════════════════════════════════════
+# DEBUG — inspect raw Moonraker response for a printer
+# Usage: GET /printers/{id}/debug_moonraker
+# ══════════════════════════════════════════════════════════════════
+
+@router.get("/{printer_id}/debug_moonraker")
+async def debug_moonraker(printer_id: int, db: Session = Depends(get_db)):
+    """
+    Returns raw data from Moonraker for debugging.
+    Open in browser: http://<server>:8000/printers/<id>/debug_moonraker
+    """
+    import httpx
+
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+
+    ip = printer.ip_address
+
+    try:
+        # 1. List all available Klipper objects
+        async with httpx.AsyncClient(timeout=5) as client:
+            obj_res  = await client.get(f"http://{ip}/printer/objects/list")
+            objects  = obj_res.json().get("result", {}).get("objects", [])
+
+            # 2. Query the key objects we care about
+            sensor_key = next((o for o in objects if o.startswith("filament")), None)
+            query = "print_stats&virtual_sdcard&pause_resume"
+            if sensor_key:
+                query += f"&{sensor_key}"
+
+            data_res = await client.get(f"http://{ip}/printer/objects/query?{query}")
+            data     = data_res.json().get("result", {}).get("status", {})
+
+        return {
+            "printer_name": printer.name,
+            "printer_ip":   ip,
+            "filament_sensor_found": sensor_key,
+            "all_objects": objects,
+            "print_stats": data.get("print_stats"),
+            "pause_resume": data.get("pause_resume"),
+            "filament_sensor": data.get(sensor_key) if sensor_key else None,
+            "db_error_message": printer.error_message,
+        }
+
+    except Exception as e:
+        return {"error": str(e), "printer_ip": ip}

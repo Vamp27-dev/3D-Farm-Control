@@ -43,6 +43,7 @@ interface Printer {
   bed_temp?: number | null; bed_target?: number | null
   extruder_temp?: number | null; extruder_target?: number | null
   eta_seconds?: number | null
+  error_message?: string | null; filament_detected?: boolean | null
 }
 interface QueueItem { id: number; printer_id: number; batch_id: number; batch_name: string; status: string; position: number }
 interface Analytics {
@@ -303,7 +304,26 @@ function PrinterTray({ printer, onClose, onRefresh }: {
         )}
       </div>
 
-      {/* Temps + ETA */}
+      {/* ✅ Alert banner — surfaces WHY a printer paused/errored, pulled from Moonraker */}
+      {printer.error_message && (
+        <div style={{
+          margin: "14px 20px 0", padding: "12px 14px",
+          background: isPaused ? "#f59e0b14" : "#ef444414",
+          border: `1px solid ${isPaused ? "#f59e0b44" : "#ef444444"}`,
+          borderRadius: 8,
+          display: "flex", alignItems: "flex-start", gap: 10,
+        }}>
+          <span style={{ fontSize: 16, flexShrink: 0, marginTop: 1 }}>
+            {printer.filament_detected === false ? "🧵" : "⚠️"}
+          </span>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: isPaused ? "#f59e0b" : "#ef4444", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+              {isPaused ? "Paused — needs attention" : "Printer alert"}
+            </div>
+            <div style={{ fontSize: 13, color: S.text, lineHeight: 1.4 }}>{printer.error_message}</div>
+          </div>
+        </div>
+      )}
       {(printer.extruder_temp || printer.bed_temp) && (
         <div style={{ padding: "14px 20px", borderBottom: `1px solid ${S.border}` }}>
           <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Temperatures</div>
@@ -512,10 +532,12 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
       onMouseLeave={() => setHov(false)}
       style={{
         background: selected ? S.card2 : hov ? S.hover : S.card,
-        border: `1px solid ${selected ? col : hov ? S.border : S.borderS}`,
+        border: `1px solid ${printer.error_message ? "#ef444466" : selected ? col : hov ? S.border : S.borderS}`,
         borderRadius: 10, padding: "14px 16px",
         cursor: "pointer", transition: "all 0.15s",
-        boxShadow: selected ? `0 0 0 1px ${col}33, 0 4px 20px rgba(0,0,0,0.3)` : "none",
+        boxShadow: printer.error_message
+          ? "0 0 0 1px #ef444433, 0 0 16px #ef444422"
+          : selected ? `0 0 0 1px ${col}33, 0 4px 20px rgba(0,0,0,0.3)` : "none",
         position: "relative", overflow: "hidden",
       }}
     >
@@ -535,10 +557,21 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
         <StatusPill status={printer.status} />
       </div>
 
-      {/* File */}
-      <div style={{ fontSize:10,color:S.muted,minHeight:13,marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
-        {(isPrinting || isPaused) && printer.current_file ? printer.current_file : printer.status === "offline" ? "" : "Ready"}
-      </div>
+      {/* File / alert */}
+      {printer.error_message ? (
+        <div style={{
+          fontSize:10, color:"#ef4444", minHeight:13, marginBottom:8,
+          overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+          display:"flex", alignItems:"center", gap:4, fontWeight:600,
+        }}>
+          <span>{printer.filament_detected === false ? "🧵" : "⚠️"}</span>
+          {printer.error_message}
+        </div>
+      ) : (
+        <div style={{ fontSize:10,color:S.muted,minHeight:13,marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+          {(isPrinting || isPaused) && printer.current_file ? printer.current_file : printer.status === "offline" ? "" : "Ready"}
+        </div>
+      )}
 
       {/* Progress */}
       {(isPrinting || isPaused) && (

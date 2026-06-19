@@ -34,4 +34,8 @@ class PrinterResponse(BaseModel):
     extruder_target: Optional[float] = None
     eta_seconds:     Optional[int]   = None
 
+    # ✅ Error / pause reason from Moonraker
+    error_message:     Optional[str]  = None
+    filament_detected: Optional[bool] = None
+
     model_config = {"from_attributes": True}

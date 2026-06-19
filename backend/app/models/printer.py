@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.core.database import Base
@@ -26,6 +26,11 @@ class Printer(Base):
     extruder_temp   = Column(Float, nullable=True)
     extruder_target = Column(Float, nullable=True)
     eta_seconds     = Column(Integer, nullable=True)
+
+    # ✅ Error / pause reason — pulled from Moonraker's print_stats.message
+    # and filament_switch_sensor, surfaced in the Printer Tray as an alert
+    error_message     = Column(String, nullable=True)
+    filament_detected = Column(Boolean, nullable=True)   # None = no sensor configured
 
     batch_jobs = relationship("BatchPrinter", back_populates="printer")
     tags       = relationship("Tag", secondary="printer_tags", back_populates="printers")
