@@ -92,6 +92,19 @@ app.include_router(users_router.router)
 
 
 # ==========================
+# ✅ SPA passthrough routes
+# FastAPI's wildcard /{printer_id} in the printer router catches
+# /printers/manage, /printers/5/debug_moonraker etc. before the
+# catch-all SPA route can serve index.html.
+# Register these explicit GET routes AFTER the routers so they
+# still lose to real API endpoints, but the catch-all below
+# handles everything else.
+# The REAL fix is to ensure the catch-all at the bottom correctly
+# serves index.html for ALL non-API GET requests.
+# ==========================
+
+
+# ==========================
 # START SERVICES
 # ==========================
 @app.on_event("startup")
@@ -125,13 +138,18 @@ if os.path.exists(FRONTEND_DIST):
     # Serve static assets
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
 
-    # Catch-all: serve index.html for any non-API route (React Router needs this)
+    # ✅ Bulletproof SPA catch-all
+    # FastAPI matches registered routes FIRST (all API routes).
+    # This catch-all only fires for paths that no API route matched.
+    # Frontend routes (/manage/printers, /manage/users, /batches, /history etc.)
+    # are deliberately chosen to NOT start with any API prefix so there's
+    # zero ambiguity. Just serve index.html for everything that gets here.
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
-        # Don't intercept API routes
-        if full_path.startswith(("printers", "batches", "files", "auth", "users", "analytics")):
-            return {"detail": "Not found"}
-        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        index = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index):
+            return FileResponse(index)
+        return {"detail": "Frontend not built — run npm run build"}
 else:
     @app.get("/")
     def root():

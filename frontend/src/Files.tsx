@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
+import { getUserRole } from "./utils/auth"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
 
@@ -15,6 +16,8 @@ function formatSize(bytes: number) {
 }
 
 export default function Files() {
+  const role = getUserRole()
+  const isAdmin = role === "admin"
   const [folders, setFolders]               = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [files, setFiles]                   = useState<FileItem[]>([])
@@ -89,21 +92,23 @@ export default function Files() {
           <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>File Library</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{files.length} files</span>
         </div>
-        <label style={{
-          background: uploading ? "var(--card2)" : "#2563eb",
-          border: "none", color: uploading ? "var(--text-muted)" : "#fff",
-          borderRadius: 7, padding: "7px 16px", fontSize: 13,
-          fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
-          display: "flex", alignItems: "center", gap: 8,
-        }}>
-          {uploading ? (
-            <>
-              <span style={{ display:"inline-block",width:12,height:12,border:"2px solid #475569",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
-              Uploading…
-            </>
-          ) : "↑ Upload File"}
-          <input type="file" accept=".gcode,.3mf,.g,.gco" hidden onChange={uploadFile} disabled={uploading} />
-        </label>
+        {isAdmin && (
+          <label style={{
+            background: uploading ? "var(--card2)" : "#2563eb",
+            border: "none", color: uploading ? "var(--text-muted)" : "#fff",
+            borderRadius: 7, padding: "7px 16px", fontSize: 13,
+            fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            {uploading ? (
+              <>
+                <span style={{ display:"inline-block",width:12,height:12,border:"2px solid #475569",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
+                Uploading…
+              </>
+            ) : "↑ Upload File"}
+            <input type="file" accept=".gcode,.3mf,.g,.gco" hidden onChange={uploadFile} disabled={uploading} />
+          </label>
+        )}
       </div>
 
       <div style={{ padding: "24px 28px", display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
@@ -159,16 +164,18 @@ export default function Files() {
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{formatSize(file.file_size)}</div>
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    onClick={() => deleteFile(file.id, file.original_name)}
-                    disabled={deletingId === file.id}
-                    style={{
-                      background: "none", border: "1px solid #ef4444", color: "#ef4444",
-                      borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
-                      cursor: deletingId === file.id ? "not-allowed" : "pointer",
-                      opacity: deletingId === file.id ? 0.5 : 1,
-                    }}
-                  >{deletingId === file.id ? "…" : "Delete"}</button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => deleteFile(file.id, file.original_name)}
+                      disabled={deletingId === file.id}
+                      style={{
+                        background: "none", border: "1px solid #ef4444", color: "#ef4444",
+                        borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                        cursor: deletingId === file.id ? "not-allowed" : "pointer",
+                        opacity: deletingId === file.id ? 0.5 : 1,
+                      }}
+                    >{deletingId === file.id ? "…" : "Delete"}</button>
+                  )}
                 </div>
               </div>
             ))

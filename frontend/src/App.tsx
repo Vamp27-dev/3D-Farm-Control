@@ -89,9 +89,9 @@ function Sidebar({ printers }: { printers: Printer[] }) {
     { path: "/",                icon: "⬡",  label: "Dashboard" },
     { path: "/files",           icon: "⊞",  label: "Files" },
     { path: "/batches",         icon: "▤",  label: "Batches" },
-    { path: "/printers/manage", icon: "⊟",  label: "Printers" },
+    { path: "/manage/printers", icon: "⊟",  label: "Printers" },
     { path: "/history",         icon: "◷",  label: "History" },
-    ...(role === "admin" ? [{ path: "/users/manage", icon: "⊙", label: "Users" }] : []),
+    ...(role === "admin" ? [{ path: "/manage/users", icon: "⊙", label: "Users" }] : []),
   ]
 
   return (
@@ -656,8 +656,8 @@ function App() {
         <Route path="/files"           element={<ProtectedRoute><AppShell printers={printers}><Files /></AppShell></ProtectedRoute>} />
         <Route path="/add-printer"     element={<ProtectedRoute><AppShell printers={printers}><AddPrinter /></AppShell></ProtectedRoute>} />
         <Route path="/batches"         element={<ProtectedRoute><AppShell printers={printers}><Batches /></AppShell></ProtectedRoute>} />
-        <Route path="/printers/manage" element={<ProtectedRoute><AppShell printers={printers}><PrinterManagement /></AppShell></ProtectedRoute>} />
-        <Route path="/users/manage"    element={<ProtectedRoute><AppShell printers={printers}><UserManagement /></AppShell></ProtectedRoute>} />
+        <Route path="/manage/printers" element={<ProtectedRoute><AppShell printers={printers}><PrinterManagement /></AppShell></ProtectedRoute>} />
+        <Route path="/manage/users"    element={<ProtectedRoute><AppShell printers={printers}><UserManagement /></AppShell></ProtectedRoute>} />
         <Route path="/history"         element={<ProtectedRoute><AppShell printers={printers}><PrintHistory /></AppShell></ProtectedRoute>} />
       </Routes>
     </>
@@ -683,9 +683,10 @@ function AppShell({ children, printers }: {
 
 function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinters: () => void }) {
   const role = getUserRole()
-  const [analytics, setAnalytics]           = useState<Analytics | null>(null)
-  const [selectedPrinter, setSelectedPrinter] = useState<Printer | null>(null)
-  const [showAddModal, setShowAddModal]       = useState(false)
+  const [analytics, setAnalytics]             = useState<Analytics | null>(null)
+  const [selectedPrinter, setSelectedPrinter]   = useState<Printer | null>(null)
+  const [showAddModal, setShowAddModal]         = useState(false)
+  const [statusFilter, setStatusFilter]         = useState<string>("all") // ✅ filter state
 
   const selectedPrinterRef = useRef<Printer | null>(null)
   selectedPrinterRef.current = selectedPrinter
@@ -725,6 +726,21 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
   const paused   = printers.filter(p=>p.status==="paused").length
   const idle     = printers.filter(p=>p.status==="idle").length
   const offline  = printers.filter(p=>p.status==="offline").length
+
+  // ✅ Stable sort — highest print progress first, then idle, then offline
+  // This prevents the random shuffle every 5 seconds since DB returns arbitrary order
+  const STATUS_RANK: Record<string, number> = { printing: 0, paused: 1, idle: 2, offline: 3 }
+  const sortedPrinters = [...printers].sort((a, b) => {
+    const rankDiff = (STATUS_RANK[a.status] ?? 4) - (STATUS_RANK[b.status] ?? 4)
+    if (rankDiff !== 0) return rankDiff
+    // Within same status, sort by progress descending (highest first)
+    return (b.progress ?? 0) - (a.progress ?? 0)
+  })
+
+  // ✅ Apply status filter
+  const visiblePrinters = statusFilter === "all"
+    ? sortedPrinters
+    : sortedPrinters.filter(p => p.status === statusFilter)
 
   return (
     <div style={{ minHeight:"100vh", background:S.bg, color:S.text }}>
@@ -810,15 +826,56 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
           </div>
         )}
 
+        {/* ✅ Status filter pills */}
+        <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+          <span style={{ fontSize:11, color:S.muted, textTransform:"uppercase", letterSpacing:1.5, marginRight:4 }}>Filter</span>
+          {[
+            { label:"All",      value:"all",      count:total,    color:S.muted   },
+            { label:"Printing", value:"printing",  count:printing, color:"#10b981" },
+            { label:"Paused",   value:"paused",   count:paused,   color:"#f59e0b" },
+            { label:"Idle",     value:"idle",     count:idle,     color:"#2563eb" },
+            { label:"Offline",  value:"offline",  count:offline,  color:"#ef4444" },
+          ].map(({ label, value, count, color }) => {
+            const active = statusFilter === value
+            return (
+              <button key={value} onClick={() => {
+                setStatusFilter(value)
+                setSelectedPrinter(null) // close tray when filter changes
+              }} style={{
+                padding:"5px 14px", borderRadius:20, fontSize:12, fontWeight:600,
+                cursor:"pointer", transition:"all 0.15s",
+                background: active ? `${color}22` : S.card,
+                border: `1px solid ${active ? color : S.border}`,
+                color: active ? color : S.muted,
+                display:"flex", alignItems:"center", gap:6,
+              }}>
+                {active && <span style={{
+                  width:6, height:6, borderRadius:"50%",
+                  background:color, display:"inline-block",
+                  boxShadow:`0 0 6px ${color}`,
+                }} />}
+                {label}
+                <span style={{
+                  fontSize:10, fontWeight:700,
+                  background: active ? `${color}33` : S.card2,
+                  border:`1px solid ${active ? color+"44" : S.border}`,
+                  borderRadius:10, padding:"1px 6px",
+                  color: active ? color : S.muted,
+                }}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Printer grid */}
         <div style={{
           display:"grid",
-          gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",
-          gap:10,
+          gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",
+          gap:12,
           marginRight: selectedPrinter ? 376 : 0,
           transition:"margin-right 0.2s ease",
         }}>
-          {printers.map(printer => (
+          {visiblePrinters.map(printer => (
             <PrinterCard
               key={printer.id}
               printer={printer}
@@ -828,6 +885,19 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
               role={role}
             />
           ))}
+          {visiblePrinters.length === 0 && printers.length > 0 && (
+            <div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:S.dim}}>
+              <div style={{fontSize:32,marginBottom:12}}>🔍</div>
+              <div style={{fontSize:15,color:S.muted}}>
+                No {statusFilter} printers
+              </div>
+              <button onClick={()=>setStatusFilter("all")} style={{
+                marginTop:12, background:"none", border:`1px solid ${S.border}`,
+                borderRadius:6, padding:"5px 16px", fontSize:12,
+                color:S.muted, cursor:"pointer",
+              }}>Clear filter</button>
+            </div>
+          )}
           {printers.length === 0 && (
             <div style={{gridColumn:"1/-1",textAlign:"center",padding:"80px 0",color:S.dim}}>
               <div style={{fontSize:40,marginBottom:16}}>🖨️</div>
