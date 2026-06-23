@@ -125,42 +125,52 @@ def create_batch(batch: BatchCreate, db: Session = Depends(get_db)):
 @router.get("/", dependencies=[Depends(require_role(["admin", "operator", "viewer"]))])
 def list_batches(include_archived: bool = False, db: Session = Depends(get_db)):
 
-    query = db.query(Batch)
-    if not include_archived:
-        query = query.filter(Batch.archived == False)
+    # ✅ Serial numbers are computed independently for active vs archived batches.
+    # This guarantees the active (Batches page) list always shows clean 1,2,3...
+    # regardless of how many batches have been archived — archived batches
+    # never take up a serial slot in the active list.
+    active_batches = db.query(Batch).filter(Batch.archived == False).order_by(Batch.id.asc()).all()
 
-    batches = query.order_by(Batch.id.asc()).all()
+    if include_archived:
+        archived_batches = db.query(Batch).filter(Batch.archived == True).order_by(Batch.id.asc()).all()
+    else:
+        archived_batches = []
 
-    result = []
-    for serial, batch in enumerate(batches, start=1):
+    def serialize(batch_list, start_serial=1):
+        out = []
+        for serial, batch in enumerate(batch_list, start=start_serial):
+            file = db.query(File).filter(File.id == batch.file_id).first()
+            file_name = file.original_name if file else "Unknown"
 
-        file = db.query(File).filter(File.id == batch.file_id).first()
-        file_name = file.original_name if file else "Unknown"
+            jobs = db.query(BatchPrinter).filter(BatchPrinter.batch_id == batch.id).all()
 
-        jobs = db.query(BatchPrinter).filter(BatchPrinter.batch_id == batch.id).all()
-
-        if not jobs:
-            status = "empty"
-        else:
-            statuses = [j.status for j in jobs]
-            if all(s == "completed" for s in statuses):
-                status = "completed"
-            elif any(s == "printing" for s in statuses):
-                status = "printing"
-            elif any(s in ["queued", "waiting_confirmation"] for s in statuses):
-                status = "queued"
+            if not jobs:
+                status = "empty"
             else:
-                status = "unknown"
+                statuses = [j.status for j in jobs]
+                if all(s == "completed" for s in statuses):
+                    status = "completed"
+                elif any(s == "printing" for s in statuses):
+                    status = "printing"
+                elif any(s in ["queued", "waiting_confirmation"] for s in statuses):
+                    status = "queued"
+                else:
+                    status = "unknown"
 
-        result.append({
-            "id": batch.id,                                   # real ID (internal use)
-            "serial": serial,                                 # ✅ display number
-            "name": batch.name or f"Batch {batch.id}",
-            "file_name": file_name,
-            "status": status,
-            "archived": batch.archived,
-            "created_at": batch.created_at,
-        })
+            out.append({
+                "id": batch.id,                                   # real ID (internal use)
+                "serial": serial,                                 # ✅ display number — independent sequence
+                "name": batch.name or f"Batch {batch.id}",
+                "file_name": file_name,
+                "status": status,
+                "archived": batch.archived,
+                "created_at": batch.created_at.isoformat() + "Z" if batch.created_at else None,
+            })
+        return out
+
+    result = serialize(active_batches, start_serial=1)
+    if include_archived:
+        result += serialize(archived_batches, start_serial=1)   # ✅ archived gets its own 1,2,3...
 
     return result
 
@@ -190,8 +200,8 @@ def batch_printers(batch_id: int, db: Session = Depends(get_db)):
             "printer_status": printer.status if printer else "unknown",
             "job_status": job.status,
             "progress": printer.progress if printer and job.status == "printing" else None,
-            "started_at": job.started_at,
-            "completed_at": job.completed_at,
+            "started_at":   job.started_at.isoformat() + "Z" if job.started_at else None,
+            "completed_at": job.completed_at.isoformat() + "Z" if job.completed_at else None,
         })
 
     return result

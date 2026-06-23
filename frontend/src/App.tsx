@@ -10,6 +10,8 @@ import PrinterManagement from "./PrinterManagement"
 import UserManagement from "./UserManagement"
 import PrintHistory from "./PrintHistory"
 import { useTheme } from "./theme"
+import AddPrinterModal from "./AddPrinterModal"
+import PrinterIcon from "./PrinterIcon"
 
 // ✅ Relative URL: works from any IP/network automatically
 // When served via Docker (production), frontend and backend are on the same host+port
@@ -184,7 +186,10 @@ function Sidebar({ printers }: { printers: Printer[] }) {
       <div style={{ padding: "12px 20px", borderTop: `1px solid ${S.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <span style={{ fontSize: 11, color: S.muted }}>Theme</span>
-          <button onClick={toggle} style={{
+          <button onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            toggle(rect.left + rect.width / 2, rect.top + rect.height / 2)
+          }} style={{
             background: S.card2, border: `1px solid ${S.border}`,
             color: S.muted, borderRadius: 6, padding: "3px 8px",
             fontSize: 13, cursor: "pointer", lineHeight: 1,
@@ -270,13 +275,32 @@ function PrinterTray({ printer, onClose, onRefresh }: {
       zIndex: 50, display: "flex", flexDirection: "column",
       boxShadow: "-12px 0 40px rgba(0,0,0,0.5)",
       fontFamily: "'Inter', system-ui, sans-serif",
+      animation: "tray-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
     }}>
+      <style>{`
+        @keyframes tray-slide-in {
+          from { transform: translateX(100%); opacity: 0.6; }
+          to   { transform: translateX(0);    opacity: 1;   }
+        }
+      `}</style>
       {/* Header */}
       <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${S.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>Printer</div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: S.text }}>{printer.name}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* ✅ Printer visual — Neptune or Centauri illustration based on type */}
+            <div style={{
+              width: 56, height: 56, borderRadius: 10, flexShrink: 0,
+              background: S.card2, border: `1px solid ${S.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <PrinterIcon type={printer.type ?? "klipper"} size={40} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
+                {printer.type === "centauri" ? "Centauri Carbon" : "Neptune"}
+              </div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: S.text }}>{printer.name}</h2>
+            </div>
           </div>
           <button onClick={onClose} style={{
             background: "none", border: "none", color: S.muted,
@@ -443,57 +467,8 @@ function TBtn({ onClick, color, disabled, children, small }: {
 
 // ─── Add Printer Modal ────────────────────────────────────────────────────────
 
-function AddPrinterModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const [name, setName] = useState(""); const [ip, setIp] = useState("")
-  const [type, setType] = useState("klipper"); const [loading, setLoading] = useState(false)
-
-  const submit = async () => {
-    if (!name || !ip) { alert("Fill all fields"); return }
-    setLoading(true)
-    try {
-      const res = await apiFetch("/printers/", { method: "POST", body: JSON.stringify({ name, ip_address: ip, type }) })
-      if (res?.detail) { alert(res.detail); setLoading(false); return }
-      onAdded(); onClose()
-    } catch { alert("Failed") }
-    setLoading(false)
-  }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:60 }}>
-      <div style={{ background:S.card,border:`1px solid ${S.border}`,borderRadius:12,padding:28,width:360,boxShadow:"0 24px 64px rgba(0,0,0,0.7)" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
-          <h2 style={{ margin:0,fontSize:17,fontWeight:700,color:S.text }}>Add Printer</h2>
-          <button onClick={onClose} style={{ background:"none",border:"none",color:S.muted,fontSize:18,cursor:"pointer" }}>✕</button>
-        </div>
-        {[{label:"Name",val:name,set:setName,ph:"Neptune-7"},{label:"IP Address",val:ip,set:setIp,ph:"192.168.68.70"}].map(({label,val,set,ph})=>(
-          <div key={label} style={{ marginBottom:14 }}>
-            <label style={{ display:"block",fontSize:10,color:S.muted,marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>{label}</label>
-            <input value={val} onChange={e=>set(e.target.value)} placeholder={ph} style={{
-              width:"100%",padding:"8px 12px",background:S.card2,border:`1px solid ${S.border}`,
-              borderRadius:6,color:S.text,fontSize:14,boxSizing:"border-box",outline:"none",
-            }} />
-          </div>
-        ))}
-        <div style={{ marginBottom:20 }}>
-          <label style={{ display:"block",fontSize:10,color:S.muted,marginBottom:5,textTransform:"uppercase",letterSpacing:1.5 }}>Type</label>
-          <select value={type} onChange={e=>setType(e.target.value)} style={{
-            width:"100%",padding:"8px 12px",background:S.card2,border:`1px solid ${S.border}`,
-            borderRadius:6,color:S.text,fontSize:14,
-          }}>
-            <option value="klipper">Neptune (Klipper/Moonraker)</option>
-            <option value="centauri">Centauri Carbon</option>
-          </select>
-        </div>
-        <div style={{ display:"flex",gap:10 }}>
-          <button onClick={onClose} style={{ flex:1,padding:"8px 0",background:"none",border:`1px solid ${S.border}`,borderRadius:6,color:S.muted,cursor:"pointer",fontSize:13 }}>Cancel</button>
-          <button onClick={submit} disabled={loading} style={{ flex:2,padding:"8px 0",background:loading?"#1e293b":"#2563eb",border:"none",borderRadius:6,color:"#fff",cursor:loading?"not-allowed":"pointer",fontWeight:600,fontSize:13 }}>
-            {loading?"Adding…":"Add Printer"}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// AddPrinterModal moved to its own file: ./AddPrinterModal.tsx
+// (shared between Dashboard and Printers Management page)
 
 // ─── Status Pill ──────────────────────────────────────────────────────────────
 
@@ -649,6 +624,30 @@ function App() {
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border,#1a3a5c); border-radius: 2px; }
         body { margin: 0; background: var(--bg,#050d1a); }
+
+        /* ✅ Smooth color transitions for elements still using CSS vars directly
+           (covers any element that doesn't re-render on theme change) */
+        body, button, input, select {
+          transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        }
+
+        /* ✅ Telegram-style circular reveal — expands outward from the toggle button.
+           Uses the View Transitions API (Chrome/Edge 111+). Safari/Firefox fall back
+           to an instant switch automatically (handled in theme.tsx). */
+        ::view-transition-old(root) {
+          animation: none;
+        }
+        ::view-transition-new(root) {
+          animation: reveal-circle 0.5s ease-out;
+        }
+        @keyframes reveal-circle {
+          from {
+            clip-path: circle(0% at var(--reveal-x, 100%) var(--reveal-y, 0%));
+          }
+          to {
+            clip-path: circle(150% at var(--reveal-x, 100%) var(--reveal-y, 0%));
+          }
+        }
       `}</style>
       <Routes>
         <Route path="/login" element={<Login />} />

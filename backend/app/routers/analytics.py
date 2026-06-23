@@ -94,8 +94,9 @@ def print_history(limit: int = 100, offset: int = 0, db: Session = Depends(get_d
             "printer_name":     printer.name if printer else f"Printer #{r.printer_id}",
             "batch_id":         r.batch_id,
             "status":           r.status,
-            "started_at":       r.started_at.isoformat() if r.started_at else None,
-            "completed_at":     r.completed_at.isoformat() if r.completed_at else None,
+            # ✅ Append Z so browsers parse as UTC, frontend converts to IST
+            "started_at":       r.started_at.isoformat() + "Z" if r.started_at else None,
+            "completed_at":     r.completed_at.isoformat() + "Z" if r.completed_at else None,
             "duration_seconds": r.duration_seconds,
         })
 

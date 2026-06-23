@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 from typing import Optional
 from datetime import datetime
 
@@ -39,3 +39,9 @@ class PrinterResponse(BaseModel):
     filament_detected: Optional[bool] = None
 
     model_config = {"from_attributes": True}
+
+    # ✅ Always serialize datetimes as UTC with Z suffix so the frontend
+    # correctly converts to IST instead of misreading as local time
+    @field_serializer("last_seen")
+    def serialize_last_seen(self, dt: datetime) -> str:
+        return dt.isoformat() + "Z" if dt else None

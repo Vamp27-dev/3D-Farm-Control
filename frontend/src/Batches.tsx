@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { toISTDate, timeAgo } from "./utils/date"
 import { apiFetch } from "./App"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -95,13 +96,7 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  })
-}
+// date formatting via shared utils/date
 
 // ─── Create Batch Modal ───────────────────────────────────────────────────────
 
@@ -540,10 +535,31 @@ function Batches() {
   const [batchPrinters, setBatchPrinters] = useState<Record<number, BatchPrinterJob[]>>({})
   const [startingBatchId, setStartingBatchId] = useState<number | null>(null)
 
+  // ✅ Completed batches — separate collapsible section, fetched on demand
+  const [showCompleted, setShowCompleted]       = useState(false)
+  const [completedBatches, setCompletedBatches] = useState<Batch[]>([])
+  const [loadingCompleted, setLoadingCompleted] = useState(false)
+
   const loadBatches = useCallback(async () => {
     const data = await apiFetch("/batches/")
     if (Array.isArray(data)) setBatches(data)
   }, [])
+
+  const loadCompletedBatches = useCallback(async () => {
+    setLoadingCompleted(true)
+    const data = await apiFetch("/batches/?include_archived=true")
+    if (Array.isArray(data)) {
+      // Only the archived ones — active ones are already shown above
+      setCompletedBatches(data.filter((b: Batch) => b.archived))
+    }
+    setLoadingCompleted(false)
+  }, [])
+
+  const toggleCompleted = () => {
+    const next = !showCompleted
+    setShowCompleted(next)
+    if (next && completedBatches.length === 0) loadCompletedBatches()
+  }
 
   useEffect(() => {
     loadBatches()
@@ -694,7 +710,10 @@ function Batches() {
                         {batch.file_name}
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--text-dim)", flexShrink: 0 }}>{formatDate(batch.created_at)}</div>
+                    <div style={{ flexShrink: 0, textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{timeAgo(batch.created_at)}</div>
+                      <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{toISTDate(batch.created_at)}</div>
+                    </div>
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       {(batch.status === "queued" || batch.status === "empty") && (
                         <button
@@ -787,6 +806,74 @@ function Batches() {
             })}
           </div>
         )}
+
+        {/* ✅ Completed Batches — collapsible, fetched only when opened */}
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={toggleCompleted}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 10,
+              background: "var(--card)", border: "1px solid var(--border)",
+              borderRadius: 10, padding: "12px 18px", cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--card)")}
+          >
+            <span style={{
+              fontSize: 11, color: "var(--text-dim)",
+              transform: showCompleted ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}>▶</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)" }}>
+              Completed Batches
+            </span>
+            {completedBatches.length > 0 && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: "var(--text-muted)",
+                background: "var(--card2)", border: "1px solid var(--border)",
+                borderRadius: 10, padding: "1px 8px",
+              }}>{completedBatches.length}</span>
+            )}
+          </button>
+
+          {showCompleted && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+              {loadingCompleted ? (
+                <div style={{ textAlign: "center", padding: "24px 0", color: "var(--text-dim)", fontSize: 13 }}>
+                  Loading…
+                </div>
+              ) : completedBatches.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "24px 0", color: "var(--text-dim)", fontSize: 13 }}>
+                  No completed batches yet
+                </div>
+              ) : (
+                completedBatches.map(batch => (
+                  <div key={batch.id} style={{
+                    background: "var(--card)", border: "1px solid var(--border)",
+                    borderRadius: 8, padding: "12px 18px",
+                    display: "flex", alignItems: "center", gap: 14, opacity: 0.75,
+                  }}>
+                    <div style={{
+                      width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                      background: "var(--card2)", border: "1px solid var(--border)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: "var(--text-dim)",
+                    }}>#{batch.serial}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)" }}>{batch.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {batch.file_name}
+                      </div>
+                    </div>
+                    <StatusPill status="completed" />
+                    <div style={{ fontSize: 11, color: "var(--text-dim)", flexShrink: 0 }}>{toISTDate(batch.created_at)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {showCreate && (

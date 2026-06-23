@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { toIST } from "./utils/date"
 import { apiFetch } from "./App"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -8,13 +9,7 @@ interface HistoryItem {
   started_at: string | null; completed_at: string | null; duration_seconds: number | null
 }
 
-function toIST(iso: string | null) {
-  if (!iso) return "—"
-  return new Date(iso).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  })
-}
+// toIST imported from shared utils
 
 function fmtDuration(sec: number | null) {
   if (!sec) return "—"

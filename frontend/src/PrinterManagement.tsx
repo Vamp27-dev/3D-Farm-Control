@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiFetch } from "./App"
+import { getUserRole } from "./utils/auth"
+import AddPrinterModal from "./AddPrinterModal"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
 
@@ -175,6 +177,8 @@ export default function PrinterManagement() {
   const [editing, setEditing]       = useState<Printer | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [search, setSearch]         = useState("")
+  const [showAddModal, setShowAddModal] = useState(false)   // ✅ Add Printer modal toggle
+  const role = getUserRole()
 
   const load = useCallback(async () => {
     const data = await apiFetch("/printers/")
@@ -228,6 +232,16 @@ export default function PrinterManagement() {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or IP…"
             style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: 200 }} />
+          {/* ✅ Add Printer — admin only */}
+          {role === "admin" && (
+            <button onClick={() => setShowAddModal(true)} style={{
+              background: "#2563eb", border: "none", color: "#fff",
+              borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+            }}>
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add Printer
+            </button>
+          )}
         </div>
       </div>
 
@@ -314,6 +328,9 @@ export default function PrinterManagement() {
 
       {editing && (
         <EditPrinterModal printer={editing} onClose={() => setEditing(null)} onSaved={() => { load(); setEditing(null) }} />
+      )}
+      {showAddModal && (
+        <AddPrinterModal onClose={() => setShowAddModal(false)} onAdded={load} />
       )}
     </div>
   )
