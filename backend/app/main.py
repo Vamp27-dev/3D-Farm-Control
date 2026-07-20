@@ -7,7 +7,7 @@ from app.core.database import Base, engine, SessionLocal
 # Import ALL models (important for table creation)
 from app.models import printer, tag, batch, batch_printer, file, user, job_history
 
-from app.services.centauri_ws import start_centauri_listener
+from app.services import centauri_service
 import threading
 
 # Import routers
@@ -38,6 +38,7 @@ def run_migrations():
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS eta_seconds INTEGER",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS error_message VARCHAR",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS filament_detected BOOLEAN",
+        "ALTER TABLE printers ADD COLUMN IF NOT EXISTS mainboard_id VARCHAR",
         "ALTER TABLE batches ADD COLUMN IF NOT EXISTS name VARCHAR",
         "ALTER TABLE batches ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE",
         # Clear stale filenames on offline printers at startup
@@ -112,11 +113,11 @@ def startup_event():
     print("Starting background poller...")
     start_poller()
 
-    print("Starting Centauri listener...")
-    threading.Thread(
-        target=start_centauri_listener,
-        daemon=True,
-    ).start()
+    print("Starting Centauri Carbon listeners...")
+    # ✅ Starts one persistent WebSocket listener thread per Centauri
+    # printer already in the DB. New Centauri printers added later get
+    # their listener started automatically by the create_printer endpoint.
+    centauri_service.sync_listeners_with_db()
 
 
 # ==========================

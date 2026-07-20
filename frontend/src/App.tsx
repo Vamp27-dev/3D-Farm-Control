@@ -220,13 +220,87 @@ function Sidebar({ printers }: { printers: Printer[] }) {
   )
 }
 
+// ─── Camera Feed Section ──────────────────────────────────────────────────────
+
+function CameraSection({ url }: { url: string }) {
+  const [open, setOpen] = useState(false)
+  const [error, setError] = useState(false)
+
+  return (
+    <div style={{ borderBottom: `1px solid ${S.border}` }}>
+      <button
+        onClick={() => { setOpen(o => !o); setError(false) }}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "12px 20px", background: "none", border: "none",
+          cursor: "pointer", transition: "background 0.15s",
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = S.hover)}
+        onMouseLeave={e => (e.currentTarget.style.background = "none")}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14 }}>📷</span>
+          <span style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5 }}>
+            Live Camera
+          </span>
+        </div>
+        <span style={{
+          fontSize: 10, color: S.muted,
+          transform: open ? "rotate(90deg)" : "rotate(0deg)",
+          transition: "transform 0.2s", display: "inline-block",
+        }}>▶</span>
+      </button>
+
+      {open && (
+        <div style={{ padding: "0 20px 14px" }}>
+          {error ? (
+            <div style={{
+              background: S.card2, borderRadius: 8, padding: "20px",
+              textAlign: "center", fontSize: 12, color: S.muted,
+              border: `1px solid ${S.border}`,
+            }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>📷</div>
+              Camera not reachable<br />
+              <span style={{ fontSize: 10, color: S.dim }}>{url}</span>
+            </div>
+          ) : (
+            <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", background: "#000" }}>
+              <img
+                src={url}
+                alt="Printer camera feed"
+                onError={() => setError(true)}
+                style={{ width: "100%", display: "block", borderRadius: 8, maxHeight: 220, objectFit: "cover" }}
+              />
+              <div style={{
+                position: "absolute", bottom: 6, right: 8,
+                fontSize: 9, color: "rgba(255,255,255,0.5)",
+                background: "rgba(0,0,0,0.4)", borderRadius: 4, padding: "2px 6px",
+              }}>LIVE</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Printer Tray ─────────────────────────────────────────────────────────────
 
 function PrinterTray({ printer, onClose, onRefresh }: {
   printer: Printer; onClose: () => void; onRefresh: () => void
 }) {
-  const [queue, setQueue]   = useState<QueueItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [queue, setQueue]       = useState<QueueItem[]>([])
+  const [loading, setLoading]   = useState(false)
+
+  // ✅ Temperature control state
+  const [extruderTarget, setExtruderTarget] = useState("")
+  const [bedTarget, setBedTarget]           = useState("")
+  const [tempLoading, setTempLoading]       = useState(false)
+  const [tempMsg, setTempMsg]               = useState("")
+
+  // ✅ Light toggle state (Centauri only)
+  const [lightOn, setLightOn]     = useState(false)
+  const [lightLoading, setLightLoading] = useState(false)
 
   const loadQueue = useCallback(async () => {
     const data = await apiFetch(`/printers/${printer.id}/queue`)
@@ -238,6 +312,25 @@ function PrinterTray({ printer, onClose, onRefresh }: {
     const i = setInterval(loadQueue, 3000)
     return () => clearInterval(i)
   }, [loadQueue])
+
+  const setTemp = async () => {
+    if (!extruderTarget && !bedTarget) return
+    setTempLoading(true); setTempMsg("")
+    const body: any = {}
+    if (extruderTarget) body.extruder = parseFloat(extruderTarget)
+    if (bedTarget)      body.bed      = parseFloat(bedTarget)
+    const res = await apiFetch(`/printers/${printer.id}/set_temp`, { method: "POST", body: JSON.stringify(body) })
+    if (res?.detail) setTempMsg(`Error: ${res.detail}`)
+    else { setTempMsg("✓ Set"); onRefresh(); setTimeout(() => setTempMsg(""), 2000) }
+    setTempLoading(false)
+  }
+
+  const toggleLight = async (on: boolean) => {
+    setLightLoading(true)
+    await apiFetch(`/printers/${printer.id}/light`, { method: "POST", body: JSON.stringify({ on }) })
+    setLightOn(on)
+    setLightLoading(false)
+  }
 
   const printerCmd = async (cmd: "pause" | "resume" | "cancel") => {
     setLoading(true)
@@ -328,6 +421,9 @@ function PrinterTray({ printer, onClose, onRefresh }: {
         )}
       </div>
 
+      {/* ✅ Scrollable body — everything below the header scrolls together */}
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
       {/* ✅ Alert banner — surfaces WHY a printer paused/errored, pulled from Moonraker */}
       {printer.error_message && (
         <div style={{
@@ -414,8 +510,76 @@ function PrinterTray({ printer, onClose, onRefresh }: {
         )}
       </div>
 
+      {/* ✅ Temperature Control */}
+      {printer.status !== "offline" && (
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${S.border}` }}>
+          <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
+            Set Temperature
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+            {([
+              { label: "Extruder °C", val: extruderTarget, set: setExtruderTarget, ph: "220", color: "#f59e0b" },
+              { label: "Bed °C",      val: bedTarget,      set: setBedTarget,      ph: "60",  color: "#2563eb" },
+            ] as const).map(({ label, val, set, ph, color }) => (
+              <div key={label}>
+                <div style={{ fontSize: 10, color: S.muted, marginBottom: 4 }}>{label}</div>
+                <input
+                  type="number" value={val} onChange={e => set(e.target.value)}
+                  placeholder={String(ph)}
+                  min="0" max="350" step="5"
+                  style={{
+                    width: "100%", padding: "7px 10px", borderRadius: 6,
+                    background: S.card2, border: `1px solid ${S.border}`,
+                    color: S.text, fontSize: 14, boxSizing: "border-box",
+                    outline: "none", fontVariantNumeric: "tabular-nums",
+                  }}
+                  onFocus={e => (e.target.style.borderColor = color)}
+                  onBlur={e => (e.target.style.borderColor = S.border)}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <TBtn onClick={setTemp} color="#8b5cf6" disabled={tempLoading || (!extruderTarget && !bedTarget)}>
+              {tempLoading ? "Setting…" : "🌡 Set Temps"}
+            </TBtn>
+            <TBtn onClick={() => {
+              setExtruderTarget("0"); setBedTarget("0")
+              apiFetch(`/printers/${printer.id}/set_temp`, {
+                method: "POST", body: JSON.stringify({ extruder: 0, bed: 0 })
+              }).then(onRefresh)
+            }} color="#64748b" disabled={tempLoading}>
+              ❄ Cool Down
+            </TBtn>
+            {tempMsg && <span style={{ fontSize: 12, color: "#10b981" }}>{tempMsg}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Light Toggle — Centauri Carbon only */}
+      {printer.type === "centauri" && printer.status !== "offline" && (
+        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${S.border}` }}>
+          <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
+            Chamber Light
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <TBtn onClick={() => toggleLight(true)} color="#fbbf24" disabled={lightLoading || lightOn}>
+              💡 On
+            </TBtn>
+            <TBtn onClick={() => toggleLight(false)} color="#64748b" disabled={lightLoading || !lightOn}>
+              🌑 Off
+            </TBtn>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Camera feed — Centauri: auto-discovered at {ip}:3031/video
+          Other printers: shown if camera_url was set manually.
+          Collapsed by default, click to expand. */}
+      {printer.camera_url && <CameraSection url={printer.camera_url} />}
+
       {/* Queue */}
-      <div style={{ padding: "14px 20px", flex: 1, overflowY: "auto" }}>
+      <div style={{ padding: "14px 20px" }}>
         <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>
           Queue ({queue.length})
         </div>
@@ -445,6 +609,8 @@ function PrinterTray({ printer, onClose, onRefresh }: {
           </div>
         )}
       </div>
+
+      </div>{/* end scrollable body */}
     </div>
   )
 }

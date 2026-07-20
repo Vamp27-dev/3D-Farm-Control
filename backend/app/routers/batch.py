@@ -45,6 +45,41 @@ def check_and_archive_batch(db: Session, batch_id: int):
 
 
 # ════════════════════════════════════════════════════════════════════
+# MANUAL COMPLETE — mark a batch as archived/done regardless of job states
+# ════════════════════════════════════════════════════════════════════
+
+@router.post("/{batch_id}/complete",
+             dependencies=[Depends(require_role(["admin", "operator"]))])
+def manually_complete_batch(batch_id: int, db: Session = Depends(get_db)):
+    """
+    Manually mark a batch as completed/archived.
+    Useful when auto-archive didn't trigger (e.g. a job got stuck in
+    'printing' state after the printer went offline mid-job, or the
+    poller missed the completion event).
+    Also marks any still-'printing' jobs as 'completed' so history is clean.
+    """
+    batch = db.query(Batch).filter(Batch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    if batch.archived:
+        raise HTTPException(status_code=400, detail="Batch is already completed/archived")
+
+    jobs = db.query(BatchPrinter).filter(BatchPrinter.batch_id == batch_id).all()
+
+    # Mark any stuck-in-printing jobs as completed
+    for job in jobs:
+        if job.status == "printing":
+            job.status = "completed"
+            job.completed_at = datetime.utcnow()
+
+    batch.archived = True
+    db.commit()
+
+    return {"message": "Batch marked as completed", "batch_id": batch_id}
+
+
+# ════════════════════════════════════════════════════════════════════
 # CREATE BATCH
 # ════════════════════════════════════════════════════════════════════
 
@@ -237,6 +272,8 @@ def delete_batch(batch_id: int, db: Session = Depends(get_db)):
              dependencies=[Depends(require_role(["admin", "operator"]))])
 async def start_batch(batch_id: int, db: Session = Depends(get_db)):
     from app.services.printer_service import upload_file_to_printer, start_print
+    from app.services import centauri_service as centauri
+    from app.services.centauri_upload import upload_file_to_centauri
 
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
     if not batch:
@@ -265,8 +302,25 @@ async def start_batch(batch_id: int, db: Session = Depends(get_db)):
 
         if printer.status == "idle":
             try:
-                uploaded_name = await upload_file_to_printer(printer.ip_address, file_path)
-                await start_print(printer.ip_address, uploaded_name)
+                # ✅ Branch by printer type — Centauri uses SDCP upload+start,
+                # Klipper uses Moonraker's HTTP upload+start
+                if printer.type == "centauri":
+                    batch_mb_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+                    if not batch_mb_id:
+                        errors.append(f"{printer.name}: not yet discovered, try again shortly")
+                        job.status = "queued"
+                        queued += 1
+                        continue
+                    upload_result = await upload_file_to_centauri(printer.ip_address, file_path, file.original_name)
+                    if not upload_result["success"]:
+                        errors.append(f"{printer.name}: upload failed")
+                        job.status = "queued"
+                        queued += 1
+                        continue
+                    await centauri.start_print(printer.id, batch_mb_id, upload_result["remote_path"])
+                else:
+                    uploaded_name = await upload_file_to_printer(printer.ip_address, file_path)
+                    await start_print(printer.ip_address, uploaded_name)
 
                 job.status            = "printing"
                 job.started_at        = datetime.utcnow()

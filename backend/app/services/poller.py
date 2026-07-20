@@ -234,19 +234,28 @@ def poller_loop():
                     if data:
                         new_state = data["state"]
 
+                        # ✅ Map "complete" → "idle" so it's treated consistently
+                        # Klipper briefly reports "complete" before going to standby
+                        if new_state == "complete":
+                            new_state = "idle"
+
                         # ✅ Detect completion: was printing, now idle/standby
                         was_printing = prev_state.get("status") == "printing"
-                        now_idle     = new_state in ("idle", "standby", "complete")
+                        now_idle     = new_state in ("idle", "standby")
 
                         if was_printing and now_idle:
-                            # Check if progress was high enough = real completion
+                            # Use prev_state progress, fall back to current printer.progress
+                            # (covers server restart where prev_states was empty)
                             prev_progress = prev_state.get("progress", 0)
-                            if prev_progress >= 0.9:  # 90%+ = success
+                            if prev_progress == 0:
+                                # Fallback: use what's stored in DB from last poll
+                                prev_progress = (printer.progress or 0) / 100.0
+
+                            if prev_progress >= 0.85:  # ✅ lowered from 0.9 → more forgiving
                                 complete_job(db, printer)
                                 printer.progress = 0
-                            # If < 90% and now idle = something went wrong (cancelled/failed)
-                            # The cancel endpoint handles explicit cancels
-                            # This covers unexpected stops
+                            # If < 85%: unexpected stop — cancel endpoint handles explicit
+                            # cancels, this path covers power loss / network drop mid-print
 
                         printer.status       = new_state
                         printer.progress     = round(float(data["progress"]) * 100, 2)
@@ -282,20 +291,30 @@ def poller_loop():
                         print(log_line)
 
                     else:
-                        # Went offline — if was printing, mark as failed
+                        # Went offline — check if it was near completion before going offline
                         if prev_state.get("status") == "printing":
-                            job = db.query(BatchPrinter).filter(
-                                BatchPrinter.printer_id == printer.id,
-                                BatchPrinter.status == "printing",
-                            ).first()
-                            if job:
-                                job.status = "failed"
-                                write_history(db, printer, job, "failed")
-                                try:
-                                    from app.routers.batch import check_and_archive_batch
-                                    check_and_archive_batch(db, job.batch_id)
-                                except Exception as e:
-                                    print(f"[Poller] Archive check failed: {e}")
+                            prev_progress = prev_state.get("progress", 0)
+                            if prev_progress == 0:
+                                prev_progress = (printer.progress or 0) / 100.0
+
+                            if prev_progress >= 0.85:
+                                # ✅ Was at 85%+ when connection dropped = almost certainly
+                                # completed. Write success rather than failed.
+                                complete_job(db, printer)
+                                print(f"[Poller] {printer.name} went offline at {prev_progress*100:.0f}% — marking as success")
+                            else:
+                                job = db.query(BatchPrinter).filter(
+                                    BatchPrinter.printer_id == printer.id,
+                                    BatchPrinter.status == "printing",
+                                ).first()
+                                if job:
+                                    job.status = "failed"
+                                    write_history(db, printer, job, "failed")
+                                    try:
+                                        from app.routers.batch import check_and_archive_batch
+                                        check_and_archive_batch(db, job.batch_id)
+                                    except Exception as e:
+                                        print(f"[Poller] Archive check failed: {e}")
 
                         printer.status        = "offline"
                         printer.progress      = 0

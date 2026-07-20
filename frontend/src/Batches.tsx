@@ -114,6 +114,7 @@ function CreateBatchModal({
   const [selectedFile, setSelectedFile]   = useState<number | null>(null)
   const [selectedPrinters, setSelectedPrinters] = useState<number[]>([])
   const [batchName, setBatchName]         = useState("")
+  const [printerTypeFilter, setPrinterTypeFilter] = useState<string>("all")  // ✅ type filter
   const [loading, setLoading]             = useState(false)
   const [step, setStep]                   = useState<1 | 2>(1)  // 1=file, 2=printers
 
@@ -149,8 +150,17 @@ function CreateBatchModal({
       printers.filter(p => p.status === "idle").map(p => p.id)
     )
 
-  const idlePrinters    = printers.filter(p => p.status === "idle")
-  const nonIdlePrinters = printers.filter(p => p.status !== "idle")
+  // ✅ Filter by selected type so you can't mix Neptune + Centauri in one batch
+  const idlePrinters    = printers.filter(p =>
+    p.status === "idle" &&
+    (printerTypeFilter === "all" || p.type === printerTypeFilter)
+  )
+  const nonIdlePrinters = printers.filter(p =>
+    p.status !== "idle" &&
+    (printerTypeFilter === "all" || p.type === printerTypeFilter)
+  )
+  // Detect available types to show filter pills
+  const availableTypes = [...new Set(printers.map(p => p.type))]
 
   const canProceed = selectedFile !== null
   const canCreate  = selectedFile !== null && selectedPrinters.length > 0
@@ -348,9 +358,41 @@ function CreateBatchModal({
           {/* ── STEP 2: Printers ── */}
           {step === 2 && (
             <div>
+              {/* ✅ Printer type filter — prevents mixing incompatible slicing profiles */}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+                  Filter by Printer Type
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {["all", ...availableTypes].map(type => {
+                    const active = printerTypeFilter === type
+                    const label = type === "all" ? "All Types" : type === "centauri" ? "Centauri Carbon" : "Neptune (Klipper)"
+                    const color = type === "centauri" ? "#f59e0b" : type === "klipper" ? "#2563eb" : "var(--text-muted)"
+                    return (
+                      <button key={type} onClick={() => {
+                        setPrinterTypeFilter(type)
+                        setSelectedPrinters([]) // clear selection when type changes
+                      }} style={{
+                        padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                        cursor: "pointer", transition: "all 0.15s",
+                        background: active ? `${color}22` : "var(--card2)",
+                        border: `1px solid ${active ? color : "var(--border)"}`,
+                        color: active ? color : "var(--text-muted)",
+                      }}>{label}</button>
+                    )
+                  })}
+                </div>
+                {printerTypeFilter !== "all" && (
+                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>⚠️</span>
+                    Make sure your gcode file was sliced for <strong>{printerTypeFilter === "centauri" ? "Centauri Carbon" : "Neptune"}</strong> printers
+                  </div>
+                )}
+              </div>
+
               {/* Quick-select */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ fontSize: 13, color: "#64748b" }}>
+                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
                   {idlePrinters.length} idle printer{idlePrinters.length !== 1 ? "s" : ""} available
                 </div>
                 {idlePrinters.length > 0 && (
@@ -365,7 +407,7 @@ function CreateBatchModal({
 
               {/* Selected file reminder */}
               <div style={{
-                background: "var(--card2)", border: "1px solid #1e293b",
+                background: "var(--card2)", border: "1px solid var(--border)",
                 borderRadius: 8, padding: "10px 14px", marginBottom: 16,
                 display: "flex", alignItems: "center", gap: 10,
               }}>
@@ -385,12 +427,14 @@ function CreateBatchModal({
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {idlePrinters.map(p => {
                       const sel = selectedPrinters.includes(p.id)
+                      const typeColor = p.type === "centauri" ? "#f59e0b" : "#2563eb"
+                      const typeLabel = p.type === "centauri" ? "Centauri" : "Neptune"
                       return (
                         <div key={p.id} onClick={() => togglePrinter(p.id)} style={{
                           display: "flex", alignItems: "center", gap: 12,
                           padding: "10px 14px", borderRadius: 8,
                           background: sel ? "#10b98112" : "var(--card2)",
-                          border: `1px solid ${sel ? "#10b981" : "#1e293b"}`,
+                          border: `1px solid ${sel ? "#10b981" : "var(--border)"}`,
                           cursor: "pointer", transition: "all 0.15s",
                         }}>
                           <div style={{
@@ -402,10 +446,16 @@ function CreateBatchModal({
                             {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
                           </div>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 500 }}>{p.name}</div>
+                            <div style={{ fontSize: 14, color: "var(--text)", fontWeight: 500 }}>{p.name}</div>
                             <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.ip_address}</div>
                           </div>
-                          <span style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>Idle</span>
+                          {/* ✅ Type badge on each printer row */}
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                            background: `${typeColor}18`, color: typeColor,
+                            border: `1px solid ${typeColor}44`,
+                          }}>{typeLabel}</span>
+                          <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Idle</span>
                         </div>
                       )
                     })}
@@ -420,24 +470,33 @@ function CreateBatchModal({
                     Unavailable
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {nonIdlePrinters.map(p => (
-                      <div key={p.id} style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        padding: "10px 14px", borderRadius: 8,
-                        background: "var(--border-subtle)", border: "1px solid #0f1f35",
-                        opacity: 0.4,
-                      }}>
-                        <div style={{
-                          width: 16, height: 16, borderRadius: 4,
-                          border: "2px solid #1e293b", flexShrink: 0,
-                        }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>{p.name}</div>
-                          <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{p.ip_address}</div>
+                    {nonIdlePrinters.map(p => {
+                      const typeColor = p.type === "centauri" ? "#f59e0b" : "#2563eb"
+                      const typeLabel = p.type === "centauri" ? "Centauri" : "Neptune"
+                      return (
+                        <div key={p.id} style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          padding: "10px 14px", borderRadius: 8,
+                          background: "var(--border-subtle)", border: "1px solid var(--border-subtle)",
+                          opacity: 0.4,
+                        }}>
+                          <div style={{
+                            width: 16, height: 16, borderRadius: 4,
+                            border: "2px solid var(--border)", flexShrink: 0,
+                          }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500 }}>{p.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--text-dim)" }}>{p.ip_address}</div>
+                          </div>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                            background: `${typeColor}18`, color: typeColor,
+                            border: `1px solid ${typeColor}44`,
+                          }}>{typeLabel}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize" }}>{p.status}</span>
                         </div>
-                        <span style={{ fontSize: 11, color: "var(--text-muted)", textTransform: "capitalize" }}>{p.status}</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -445,7 +504,7 @@ function CreateBatchModal({
               {idlePrinters.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-dim)" }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>🖨️</div>
-                  <div>No idle printers available right now</div>
+                  <div>No idle {printerTypeFilter !== "all" ? `${printerTypeFilter === "centauri" ? "Centauri" : "Neptune"} ` : ""}printers available right now</div>
                 </div>
               )}
             </div>
@@ -570,6 +629,14 @@ function Batches() {
   const deleteBatch = async (id: number) => {
     if (!confirm("Delete this batch?")) return
     const res = await apiFetch(`/batches/${id}`, { method: "DELETE" })
+    if (res?.detail) { alert(res.detail); return }
+    loadBatches()
+  }
+
+  const markComplete = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm("Mark this batch as completed? Any still-printing jobs will be marked done.")) return
+    const res = await apiFetch(`/batches/${id}/complete`, { method: "POST" })
     if (res?.detail) { alert(res.detail); return }
     loadBatches()
   }
@@ -739,6 +806,19 @@ function Batches() {
                             </>
                           ) : "▶ Start"}
                         </button>
+                      )}
+                      {/* ✅ Manual complete — visible for printing/queued batches that got stuck */}
+                      {(batch.status === "printing" || batch.status === "queued") && (
+                        <button
+                          onClick={e => markComplete(batch.id, e)}
+                          style={{
+                            background: "#2563eb18", border: "1px solid #2563eb",
+                            color: "#2563eb", borderRadius: 6, padding: "4px 10px",
+                            fontSize: 12, fontWeight: 600, cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                          title="Manually mark this batch as completed"
+                        >✓ Done</button>
                       )}
                       <button
                         onClick={e => { e.stopPropagation(); deleteBatch(batch.id) }}

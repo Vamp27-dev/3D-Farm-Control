@@ -32,5 +32,9 @@ class Printer(Base):
     error_message     = Column(String, nullable=True)
     filament_detected = Column(Boolean, nullable=True)   # None = no sensor configured
 
+    # ✅ Centauri Carbon (SDCP protocol) — required for sending commands
+    # once discovered, cached here so we don't re-discover on every action
+    mainboard_id = Column(String, nullable=True)
+
     batch_jobs = relationship("BatchPrinter", back_populates="printer")
     tags       = relationship("Tag", secondary="printer_tags", back_populates="printers")

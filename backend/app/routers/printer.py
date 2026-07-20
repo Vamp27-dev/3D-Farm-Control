@@ -17,6 +17,7 @@ from app.models.file import File
 
 from app.schemas.printer import PrinterCreate, PrinterResponse
 from app.services.printer_service import upload_file_to_printer, start_print
+from app.services import centauri_service as centauri
 from app.core.security import require_role
 
 router = APIRouter(prefix="/printers", tags=["Printers"])
@@ -28,6 +29,11 @@ router = APIRouter(prefix="/printers", tags=["Printers"])
 
 @router.post("/", response_model=PrinterResponse)
 def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
+    # ✅ Auto-set camera URL for Centauri — always at {ip}:3031/video
+    camera_url = printer.camera_url
+    if not camera_url and printer.type == "centauri":
+        camera_url = f"http://{printer.ip_address}:3031/video"
+
     db_printer = Printer(
         name=printer.name,
         ip_address=printer.ip_address,
@@ -35,7 +41,7 @@ def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
         brand=printer.brand,
         model=printer.model,
         location=printer.location,
-        camera_url=printer.camera_url,
+        camera_url=camera_url,
         status="offline",
         progress=0,
         current_file=None,
@@ -45,6 +51,11 @@ def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
         db.add(db_printer)
         db.commit()
         db.refresh(db_printer)
+
+        # ✅ Start a persistent WebSocket listener if this is a Centauri printer
+        if db_printer.type == "centauri":
+            centauri.start_listener(db_printer.id, db_printer.ip_address)
+
         return db_printer
     except IntegrityError:
         db.rollback()
@@ -87,7 +98,11 @@ def update_printer(printer_id: int, data: PrinterUpdate, db: Session = Depends(g
         printer.name = data.name
 
     if data.ip_address is not None:
+        ip_changed = data.ip_address != printer.ip_address
         printer.ip_address = data.ip_address
+    else:
+        ip_changed = False
+
     if data.location is not None:
         printer.location = data.location
     if data.camera_url is not None:
@@ -96,6 +111,12 @@ def update_printer(printer_id: int, data: PrinterUpdate, db: Session = Depends(g
     try:
         db.commit()
         db.refresh(printer)
+
+        # ✅ If the IP changed on a Centauri printer, restart its listener
+        # thread so it reconnects to the new address
+        if ip_changed and printer.type == "centauri":
+            centauri.start_listener(printer.id, printer.ip_address)
+
         return {"message": "Printer updated", "id": printer.id, "name": printer.name, "ip_address": printer.ip_address}
     except IntegrityError:
         db.rollback()
@@ -111,6 +132,18 @@ async def pause_print(printer_id: int, db: Session = Depends(get_db)):
     printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
+
+    if printer.type == "centauri":
+        # ✅ Try in-memory listener registry first (handles race condition
+        # where DB hasn't been written yet but listener already knows the ID)
+        mainboard_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+        if not mainboard_id:
+            raise HTTPException(status_code=502, detail="Printer not yet discovered — try again in a few seconds")
+        resp = await centauri.pause_print(printer.id, mainboard_id)
+        if resp is None:
+            raise HTTPException(status_code=502, detail="Cannot reach printer")
+        return {"message": "Print paused"}
+
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             res = await client.post(f"http://{printer.ip_address}/printer/print/pause")
@@ -130,6 +163,18 @@ async def resume_print(printer_id: int, db: Session = Depends(get_db)):
     printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
+
+    if printer.type == "centauri":
+        # ✅ Try in-memory listener registry first (handles race condition
+        # where DB hasn't been written yet but listener already knows the ID)
+        mainboard_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+        if not mainboard_id:
+            raise HTTPException(status_code=502, detail="Printer not yet discovered — try again in a few seconds")
+        resp = await centauri.resume_print(printer.id, mainboard_id)
+        if resp is None:
+            raise HTTPException(status_code=502, detail="Cannot reach printer")
+        return {"message": "Print resumed"}
+
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             res = await client.post(f"http://{printer.ip_address}/printer/print/resume")
@@ -154,15 +199,30 @@ async def cancel_print(printer_id: int, db: Session = Depends(get_db)):
 
     # ✅ FIX: always update DB regardless of printer response
     # Moonraker cancel can return non-200 but still cancel successfully
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            res = await client.post(f"http://{printer.ip_address}/printer/print/cancel")
-        if res.status_code not in (200, 201, 204):
-            printer_error = f"Printer returned {res.status_code} but job was cancelled"
-    except httpx.ConnectError:
-        printer_error = "Could not reach printer — DB updated anyway"
-    except Exception as e:
-        printer_error = str(e)
+    if printer.type == "centauri":
+        cancel_mb_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+        if not cancel_mb_id:
+            printer_error = "Printer not yet discovered — DB updated anyway"
+        else:
+            try:
+                # ✅ Set cancellation lock BEFORE sending command so status
+                # pushes arriving during shutdown don't overwrite the idle state
+                centauri.set_printer_cancelling(printer.id)
+                resp = await centauri.cancel_print(printer.id, cancel_mb_id)
+                if resp is None:
+                    printer_error = "Could not reach printer — DB updated anyway"
+            except Exception as e:
+                printer_error = str(e)
+    else:
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                res = await client.post(f"http://{printer.ip_address}/printer/print/cancel")
+            if res.status_code not in (200, 201, 204):
+                printer_error = f"Printer returned {res.status_code} but job was cancelled"
+        except httpx.ConnectError:
+            printer_error = "Could not reach printer — DB updated anyway"
+        except Exception as e:
+            printer_error = str(e)
 
     # Always clean up DB and write history
     job = db.query(BatchPrinter).filter(
@@ -255,11 +315,30 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="File not found")
 
     file_path = f"/app/storage/{file.stored_name}"
-    try:
-        uploaded_filename = await upload_file_to_printer(printer.ip_address, file_path)
-        await start_print(printer.ip_address, uploaded_filename)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    if printer.type == "centauri":
+        # ✅ Try in-memory listener registry first (handles race condition
+        # where DB hasn't been written yet but listener already knows the ID)
+        mainboard_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+        if not mainboard_id:
+            raise HTTPException(status_code=502, detail="Printer not yet discovered — try again in a few seconds")
+        try:
+            from app.services.centauri_upload import upload_file_to_centauri
+            upload_result = await upload_file_to_centauri(printer.ip_address, file_path, file.original_name)
+            if not upload_result["success"]:
+                raise HTTPException(status_code=500, detail="Upload to Centauri printer failed")
+            mainboard_id_for_start = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+            await centauri.start_print(printer.id, mainboard_id_for_start, upload_result["remote_path"])
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        try:
+            uploaded_filename = await upload_file_to_printer(printer.ip_address, file_path)
+            await start_print(printer.ip_address, uploaded_filename)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     next_job.status = "printing"
     next_job.started_at = datetime.utcnow()
@@ -323,16 +402,146 @@ def delete_printer(printer_id: int, db: Session = Depends(get_db)):
     printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
-    active_job = db.query(BatchPrinter).filter(
+
+    # Only block delete if printer is ACTIVELY printing right now
+    if printer.status == "printing":
+        raise HTTPException(status_code=400, detail="Cannot delete a printer while it is actively printing")
+
+    # FIX: Delete ALL batch_printer records for this printer regardless of
+    # status. Old printers that ran batches have completed/failed/cancelled
+    # records still referencing them via FK -- those block db.delete(printer)
+    # with an integrity error. Must remove every batch_printer row first.
+    all_jobs = db.query(BatchPrinter).filter(
         BatchPrinter.printer_id == printer_id,
-        BatchPrinter.status.in_(["queued", "waiting_confirmation", "printing"]),
-    ).first()
-    if active_job:
-        raise HTTPException(status_code=400, detail="Cannot delete printer with active jobs")
+    ).all()
+    for job in all_jobs:
+        db.delete(job)
+
+    # Also remove job_history records referencing this printer (FK constraint)
+    history_records = db.query(JobHistory).filter(
+        JobHistory.printer_id == printer_id,
+    ).all()
+    for record in history_records:
+        db.delete(record)
+
+    # Stop the Centauri listener thread before removing the DB record
+    if printer.type == "centauri":
+        centauri.stop_listener(printer.id)
+
     db.delete(printer)
     db.commit()
     return {"message": "Printer deleted successfully"}
 
+
+
+
+# ══════════════════════════════════════════════════════════════════
+# SET TEMPERATURE — works for both Klipper and Centauri
+# ══════════════════════════════════════════════════════════════════
+
+class TempTarget(BaseModel):
+    extruder: Optional[float] = None   # None = don't change
+    bed:      Optional[float] = None   # None = don't change
+
+
+@router.post("/{printer_id}/set_temp")
+async def set_temperature(printer_id: int, body: TempTarget, db: Session = Depends(get_db)):
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+
+    if printer.type == "centauri":
+        from app.services import centauri_protocol as proto
+
+        mb_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+        if not mb_id:
+            raise HTTPException(status_code=502, detail="Printer not yet discovered — wait a few seconds and retry")
+
+        payload: dict = {}
+        if body.extruder is not None:
+            payload["TempTargetNozzle"] = int(body.extruder)
+        if body.bed is not None:
+            payload["TempTargetHotbed"] = int(body.bed)
+
+        if not payload:
+            return {"message": "No temperature targets specified"}
+
+        # FIX: route through the listener's single open connection
+        # (send_command_via_listener) instead of opening a standalone one
+        # via proto.send_command. Opening a second WebSocket while the
+        # listener's connection is live is what crashed the firmware.
+        try:
+            await centauri.send_command_via_listener(
+                printer.id, proto.Cmd.EDIT_PRINTER_STATUS_DATA, payload,
+                wait_for_response=False,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to send temp command: {e}")
+
+        return {"message": "Temperature targets set"}
+
+    else:
+        # Klipper — use SET_HEATER_TEMPERATURE gcode
+        gcodes = []
+        if body.extruder is not None:
+            gcodes.append(f"SET_HEATER_TEMPERATURE HEATER=extruder TARGET={int(body.extruder)}")
+        if body.bed is not None:
+            gcodes.append(f"SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={int(body.bed)}")
+
+        if not gcodes:
+            return {"message": "No temperature targets specified"}
+
+        script = "\n".join(gcodes)
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                res = await client.post(
+                    f"http://{printer.ip_address}/printer/gcode/script",
+                    json={"script": script}
+                )
+            if res.status_code not in (200, 204):
+                raise HTTPException(status_code=502, detail=f"Klipper returned {res.status_code}")
+        except httpx.ConnectError:
+            raise HTTPException(status_code=502, detail="Cannot reach printer")
+
+        return {"message": "Temperature targets set"}
+
+
+# ══════════════════════════════════════════════════════════════════
+# TOGGLE LIGHT — Centauri only (Klipper printers have no unified light API)
+# ══════════════════════════════════════════════════════════════════
+
+class LightBody(BaseModel):
+    on: bool
+
+
+@router.post("/{printer_id}/light")
+async def toggle_light(printer_id: int, body: LightBody, db: Session = Depends(get_db)):
+    printer = db.query(Printer).filter(Printer.id == printer_id).first()
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+
+    if printer.type != "centauri":
+        raise HTTPException(status_code=400, detail="Light control only supported on Centauri printers")
+
+    from app.services import centauri_protocol as proto
+
+    mb_id = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
+    if not mb_id:
+        raise HTTPException(status_code=502, detail="Printer not yet discovered — wait a few seconds and retry")
+
+    # FIX: route through the listener's single open connection instead of
+    # opening a standalone one — same freeze risk as set_temp above.
+    try:
+        await centauri.send_command_via_listener(
+            printer.id,
+            proto.Cmd.EDIT_PRINTER_STATUS_DATA,
+            {"LightStatus": {"SecondLight": body.on, "RgbLight": [0, 0, 0]}},
+            wait_for_response=False,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to send light command: {e}")
+
+    return {"message": f"Light turned {'on' if body.on else 'off'}"}
 
 # ══════════════════════════════════════════════════════════════════
 # DEBUG — inspect raw Moonraker response for a printer

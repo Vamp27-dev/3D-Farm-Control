@@ -31,13 +31,15 @@ function EditPrinterModal({
   const [name, setName]           = useState(printer.name)
   const [ip, setIp]               = useState(printer.ip_address)
   const [location, setLocation]   = useState(printer.location ?? "")
+  const [cameraUrl, setCameraUrl] = useState(printer.camera_url ?? "")
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState("")
 
   const hasChanges =
     name !== printer.name ||
     ip !== printer.ip_address ||
-    location !== (printer.location ?? "")
+    location !== (printer.location ?? "") ||
+    cameraUrl !== (printer.camera_url ?? "")
 
   const save = async () => {
     if (!name.trim()) { setError("Name cannot be empty"); return }
@@ -57,6 +59,7 @@ function EditPrinterModal({
           name: name.trim(),
           ip_address: ip.trim(),
           location: location.trim() || null,
+          camera_url: cameraUrl.trim() || null,
         }),
       })
       const res = await raw.json()
@@ -73,9 +76,10 @@ function EditPrinterModal({
   }
 
   const fields = [
-    { label: "Printer Name", value: name, set: setName, placeholder: "e.g. Neptune-7" },
-    { label: "IP Address",   value: ip,   set: setIp,   placeholder: "e.g. 192.168.68.70" },
-    { label: "Location",     value: location, set: setLocation, placeholder: "e.g. Shelf A, Bay 3 (optional)" },
+    { label: "Printer Name", value: name,      set: setName,      placeholder: "e.g. Neptune-7" },
+    { label: "IP Address",   value: ip,         set: setIp,        placeholder: "e.g. 192.168.68.70" },
+    { label: "Location",     value: location,   set: setLocation,  placeholder: "e.g. Shelf A, Bay 3 (optional)" },
+    { label: "Camera URL",   value: cameraUrl,  set: setCameraUrl, placeholder: "e.g. http://192.168.68.70:8080/video (optional)" },
   ]
 
   return (
