@@ -392,7 +392,7 @@ class CentauriListener:
             now_idle = new_status in ("idle", "complete")
 
             if was_printing and now_idle:
-                if self._prev_progress >= 90:
+                if self._prev_progress >= 85:
                     complete_job(db, printer)
                     new_progress = 0
 

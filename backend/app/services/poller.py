@@ -328,7 +328,7 @@ def poller_loop():
                         "progress": data["progress"] if data else 0,
                     }
 
-                # ── CENTAURI — handled by centauri_ws.py ──────────
+                # ── CENTAURI — handled by centauri_service.py's listener thread ──
                 elif printer.type == "centauri":
                     pass
 

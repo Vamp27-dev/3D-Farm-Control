@@ -43,9 +43,12 @@ async def upload_file_to_centauri(ip: str, file_path: str, remote_filename: str 
     file_md5   = _file_md5(file_path)
     upload_uuid = uuid_lib.uuid4().hex
 
-    # FIX: correct port is 3030, not 80 — confirmed by the SDCP V3.0.0 spec's
-    # "Send File Interface" section: http://${MainboardIP}:3030/uploadFile/upload
-    url = f"http://{ip}:3030/uploadFile/upload"
+    # Port 80 — confirmed against real hardware. The official spec text
+    # documents 3030 here, but on this firmware that returns nothing usable;
+    # working community clients (e.g. opencentauri.cc's reference upload
+    # script) also hit the plain HTTP port with no :3030 suffix. Do not
+    # "fix" this back to 3030 without re-testing against real hardware first.
+    url = f"http://{ip}/uploadFile/upload"
 
     with open(file_path, "rb") as f:
         file_bytes = f.read()
