@@ -35,6 +35,12 @@ export default function PrintHistory() {
   const [filter, setFilter]   = useState<"all"|"success"|"failed"|"cancelled">("all")
   const [search, setSearch]   = useState("")
 
+  // ✅ Delete history by date range
+  const [showDeleteRange, setShowDeleteRange] = useState(false)
+  const [deleteStart, setDeleteStart]         = useState("")
+  const [deleteEnd, setDeleteEnd]             = useState("")
+  const [deleting, setDeleting]               = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     const data = await apiFetch(`/analytics/history?limit=${LIMIT}&offset=${offset}`)
@@ -46,6 +52,27 @@ export default function PrintHistory() {
 
   const exportCSV = () => {
     window.open(`${API_BASE}/analytics/export/csv`, "_blank")
+  }
+
+  const deleteRange = async () => {
+    if (!deleteStart || !deleteEnd) { alert("Pick both a start and end date"); return }
+    if (deleteEnd < deleteStart) { alert("End date must be on or after start date"); return }
+    if (!confirm(
+      `Delete all print history from ${deleteStart} to ${deleteEnd} (inclusive)?\n\nThis cannot be undone.`
+    )) return
+
+    setDeleting(true)
+    const res = await apiFetch(
+      `/analytics/history?start_date=${deleteStart}&end_date=${deleteEnd}`,
+      { method: "DELETE" }
+    )
+    setDeleting(false)
+    if (res?.detail) { alert(res.detail); return }
+    alert(res?.message ?? "History deleted")
+    setShowDeleteRange(false)
+    setDeleteStart(""); setDeleteEnd("")
+    setOffset(0)
+    load()
   }
 
   const filtered = items.filter(i => {
@@ -71,11 +98,53 @@ export default function PrintHistory() {
           <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Print History</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{total} total jobs</span>
         </div>
-        <button onClick={exportCSV} style={{
-          background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
-          borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-        }}>↓ Export CSV</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setShowDeleteRange(v => !v)} style={{
+            background: "#ef444418", border: "1px solid #ef4444", color: "#ef4444",
+            borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>🗑 Delete Range</button>
+          <button onClick={exportCSV} style={{
+            background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
+            borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          }}>↓ Export CSV</button>
+        </div>
       </div>
+
+      {showDeleteRange && (
+        <div style={{
+          background: "var(--card)", borderBottom: "1px solid var(--border)",
+          padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        }}>
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Delete history from</span>
+          <input type="date" value={deleteStart} onChange={e => setDeleteStart(e.target.value)}
+            style={{
+              padding: "6px 10px", borderRadius: 6, fontSize: 13,
+              background: "var(--card2)", border: "1px solid var(--border)",
+              color: "var(--text)", outline: "none",
+            }}
+          />
+          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>to</span>
+          <input type="date" value={deleteEnd} onChange={e => setDeleteEnd(e.target.value)}
+            style={{
+              padding: "6px 10px", borderRadius: 6, fontSize: 13,
+              background: "var(--card2)", border: "1px solid var(--border)",
+              color: "var(--text)", outline: "none",
+            }}
+          />
+          <span style={{ fontSize: 11, color: "var(--text-dim)" }}>(inclusive, IST dates)</span>
+          <button onClick={deleteRange} disabled={deleting} style={{
+            padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600,
+            background: deleting ? "var(--card2)" : "#ef4444",
+            border: "none", color: deleting ? "var(--text-muted)" : "#fff",
+            cursor: deleting ? "not-allowed" : "pointer",
+          }}>{deleting ? "Deleting…" : "Delete"}</button>
+          <button onClick={() => setShowDeleteRange(false)} style={{
+            padding: "6px 16px", borderRadius: 6, fontSize: 13,
+            background: "none", border: "1px solid var(--border)", color: "var(--text-muted)",
+            cursor: "pointer",
+          }}>Cancel</button>
+        </div>
+      )}
 
       <div style={{ padding: "24px 28px" }}>
         {/* KPIs */}

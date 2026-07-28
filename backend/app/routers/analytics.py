@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -9,6 +9,7 @@ import csv
 from app.core.database import get_db
 from app.models.job_history import JobHistory
 from app.models.printer import Printer
+from app.core.security import require_role
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -101,6 +102,53 @@ def print_history(limit: int = 100, offset: int = 0, db: Session = Depends(get_d
         })
 
     return {"total": total, "items": result}
+
+
+# ── delete history by date range ─────────────────────────────────────────────
+# IST_OFFSET matches how every other timestamp in the app is displayed
+# (utils/date.ts toIST()) -- dates picked in the UI are IST calendar days,
+# converted here to the equivalent UTC range for querying, since all
+# JobHistory timestamps are stored in UTC.
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+
+@router.delete("/history", dependencies=[Depends(require_role(["admin"]))])
+def delete_history_range(start_date: str, end_date: str, db: Session = Depends(get_db)):
+    """
+    Delete print history records within an inclusive date range, so old
+    entries can be cleared to free up space. start_date/end_date are
+    calendar dates in "YYYY-MM-DD" format (IST, matching the rest of the
+    UI), both inclusive.
+    """
+    try:
+        start_ist = datetime.strptime(start_date, "%Y-%m-%d")
+        # end_date is inclusive -- push to the start of the *next* day so
+        # the whole selected end day is covered, then treat as exclusive.
+        end_ist = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format -- expected YYYY-MM-DD")
+
+    if end_ist <= start_ist:
+        raise HTTPException(status_code=400, detail="End date must be on or after start date")
+
+    start_utc = start_ist - IST_OFFSET
+    end_utc   = end_ist - IST_OFFSET
+
+    # Use whichever timestamp is actually set -- completed_at first (the
+    # most meaningful "when did this job finish"), falling back to
+    # started_at, then created_at, so edge-case rows (e.g. cancelled
+    # before completion) aren't silently skipped by the range filter.
+    effective_date = func.coalesce(JobHistory.completed_at, JobHistory.started_at, JobHistory.created_at)
+
+    matching = db.query(JobHistory).filter(
+        effective_date >= start_utc,
+        effective_date < end_utc,
+    )
+    count = matching.count()
+    matching.delete(synchronize_session=False)
+    db.commit()
+
+    return {"message": f"Deleted {count} history record(s)", "deleted": count}
 
 
 # ── CSV export ────────────────────────────────────────────────────────────────

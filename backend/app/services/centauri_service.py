@@ -550,7 +550,16 @@ def normalize_status(raw: dict) -> dict:
             0=IDLE, 1=HOMING, 2=DROPPING, 3=EXPOSURING, 4=LIFTING,
             5=PAUSING, 6=PAUSED, 7=STOPPING, 8=STOPPED, 9=COMPLETE,
             10=FILE_CHECKING
-      - CurrentTicks / TotalTicks are in MILLISECONDS
+      - CurrentTicks / TotalTicks: the spec text says milliseconds, but
+        CONFIRMED via real hardware testing this firmware reports them in
+        SECONDS (e.g. TotalTicks=4092 for a ~68 minute print, not 4.092s).
+        A later revision "corrected" this back to milliseconds by trusting
+        the spec's literal wording over the confirmed hardware behavior,
+        which silently broke ETA (dividing an already-in-seconds value by
+        1000 makes remaining time collapse to ~0). Do not divide by 1000
+        again without new hardware evidence -- this is the second time
+        this exact regression pattern (spec text overriding a confirmed
+        real-hardware fix) has happened in this file, see start_print().
 
     FIX (this round): real logs showed PrintInfo retaining the PREVIOUS
     finished job's CurrentLayer==TotalLayer (e.g. 93/93) and Status=9
@@ -578,8 +587,9 @@ def normalize_status(raw: dict) -> dict:
 
     cur_layer = print_info.get("CurrentLayer", 0)
     total_layer = print_info.get("TotalLayer", 0)
-    cur_ticks_ms = float(print_info.get("CurrentTicks", 0) or 0)
-    total_ticks_ms = float(print_info.get("TotalTicks", 0) or 0)
+    # CONFIRMED via real hardware: these are already in SECONDS, not ms.
+    cur_ticks_s = float(print_info.get("CurrentTicks", 0) or 0)
+    total_ticks_s = float(print_info.get("TotalTicks", 0) or 0)
 
     # FIX: machine-level CurrentStatus is now the PRIMARY signal.
     # PrintInfo.Status only overrides it for pause (within an active print)
@@ -615,18 +625,16 @@ def normalize_status(raw: dict) -> dict:
     if state == "printing" or state == "paused":
         if total_layer > 0:
             progress = (cur_layer / total_layer) * 100
-        elif total_ticks_ms > 0:
-            progress = (cur_ticks_ms / total_ticks_ms) * 100
+        elif total_ticks_s > 0:
+            progress = (cur_ticks_s / total_ticks_s) * 100
         else:
             progress = 0.0
     else:
         progress = 0.0
     progress = max(0.0, min(100.0, float(progress)))
 
-    # ETA -- ticks are in MILLISECONDS per spec
-    cur_ticks_s = cur_ticks_ms / 1000.0
-    total_ticks_s = total_ticks_ms / 1000.0
-
+    # ETA -- ticks are already in SECONDS (confirmed via real hardware,
+    # see docstring above) -- do NOT divide by 1000 here.
     eta_seconds = print_info.get("RemainingTime") or print_info.get("RemainTime")
     if eta_seconds is None and state in ("printing", "paused") and total_ticks_s > cur_ticks_s > 0:
         eta_seconds = int(total_ticks_s - cur_ticks_s)

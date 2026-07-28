@@ -46,6 +46,39 @@ def _discover_filament_sensor(ip: str):
         return None
 
 
+# ✅ Cache the slicer's own estimated print time (from gcode metadata,
+# e.g. Cura/PrusaSlicer's ";TIME:" comment) per (ip, filename), so we
+# only fetch it once per print job rather than every 5s poll cycle.
+_file_metadata_cache: dict = {}
+
+
+def _get_file_estimated_time(ip: str, filename: str):
+    """
+    Moonraker's own file metadata endpoint exposes the slicer's original
+    time estimate for this specific file -- a stable number that doesn't
+    depend on how far into the print we are. We use it to stabilize ETA
+    early in a print, when progress-based extrapolation is too noisy to
+    trust (see fetch_klipper_data below).
+    """
+    if not filename:
+        return None
+    key = (ip, filename)
+    if key in _file_metadata_cache:
+        return _file_metadata_cache[key]
+    try:
+        res = requests.get(
+            f"http://{ip}/server/files/metadata",
+            params={"filename": filename}, timeout=3,
+        )
+        est = None
+        if res.status_code == 200:
+            est = (res.json().get("result", {}) or {}).get("estimated_time")
+        _file_metadata_cache[key] = est if est and est > 0 else None
+    except Exception:
+        _file_metadata_cache[key] = None
+    return _file_metadata_cache[key]
+
+
 def fetch_klipper_data(ip: str):
     try:
         # Discover filament sensor name once per printer, cache it
@@ -106,20 +139,59 @@ def fetch_klipper_data(ip: str):
             # Sensor tripped but Klipper hasn't paused yet (brief window)
             error_message = "⚠ Filament runout detected"
 
-        # ✅ ETA: use Moonraker's own estimated_time field
+        # ✅ ETA calculation.
+        #
+        # BUG (confirmed): Klipper's print_stats object has NO
+        # "estimated_time" field -- that field never exists on real
+        # Moonraker responses, so the old primary branch that checked
+        # `ps.get("estimated_time", 0) > 0` was always false, and every
+        # single ETA fell through to pure progress-based extrapolation:
+        #     total_estimated = print_duration / progress
+        # That's fine once well into a print, but at low progress (e.g.
+        # the first minute or two, progress < ~2%) this is extremely
+        # noisy -- tiny denominators produce wildly wrong/huge ETAs that
+        # then swing around as progress climbs. That noisiness is almost
+        # certainly what "ETA is not accurate" was describing.
+        #
+        # FIX: pull the slicer's own time estimate for this file (baked
+        # into the gcode as a comment, exposed via Moonraker's file
+        # metadata endpoint) as a stable baseline, and blend it with the
+        # live progress-based extrapolation -- fully trusting the file
+        # estimate at the very start of a print (when live data is too
+        # thin to trust), and smoothly shifting to the live, actual-speed
+        # extrapolation as real progress accumulates (which correctly
+        # accounts for this print running faster/slower than the slicer
+        # guessed).
         eta_seconds = None
         try:
-            estimated_time = ps.get("estimated_time", 0)
-            print_duration = ps.get("print_duration", 0)
-            progress       = vsd.get("progress", 0)
+            print_duration = ps.get("print_duration", 0) or 0
+            progress       = vsd.get("progress", 0) or 0
+            filename       = ps.get("filename") or None
 
-            if state == "printing" and estimated_time > 0 and print_duration >= 0:
-                remaining   = estimated_time - print_duration
-                eta_seconds = max(0, int(remaining))
-            elif state == "printing" and progress > 0 and print_duration > 0:
-                total_estimated = print_duration / progress
-                remaining       = total_estimated - print_duration
-                eta_seconds     = max(0, int(remaining))
+            if state == "printing" and print_duration > 0:
+                file_estimated_time = _get_file_estimated_time(ip, filename)
+
+                elapsed_based_eta = None
+                if progress >= 0.02:   # need at least 2% before trusting live extrapolation
+                    total_estimated   = print_duration / progress
+                    elapsed_based_eta = max(0.0, total_estimated - print_duration)
+
+                file_based_eta = None
+                if file_estimated_time:
+                    file_based_eta = max(0.0, file_estimated_time - print_duration)
+
+                if elapsed_based_eta is not None and file_based_eta is not None:
+                    # Fully file-based at 0% progress, fully elapsed-based
+                    # (actual measured speed) by 30% progress.
+                    weight_elapsed = min(1.0, progress / 0.30)
+                    eta_seconds = int(
+                        weight_elapsed * elapsed_based_eta
+                        + (1 - weight_elapsed) * file_based_eta
+                    )
+                elif elapsed_based_eta is not None:
+                    eta_seconds = int(elapsed_based_eta)
+                elif file_based_eta is not None:
+                    eta_seconds = int(file_based_eta)
         except Exception:
             eta_seconds = None
 

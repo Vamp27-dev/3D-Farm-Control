@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
@@ -29,14 +30,31 @@ router = APIRouter(prefix="/printers", tags=["Printers"])
 
 @router.post("/", response_model=PrinterResponse)
 def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
+    name = printer.name.strip()
+    ip = printer.ip_address.strip()
+
+    # ✅ Explicit, specific duplicate checks -- checked across ALL printers
+    # regardless of type (Neptune + Centauri share one name/IP namespace,
+    # since they're the same physical network and the same farm). Doing
+    # this ourselves (instead of relying only on the DB's unique
+    # constraint on name, which also doesn't cover ip_address at all)
+    # lets us give the person the exact right message for each case.
+    existing_name = db.query(Printer).filter(func.lower(Printer.name) == name.lower()).first()
+    if existing_name:
+        raise HTTPException(status_code=400, detail="Printer name already exists")
+
+    existing_ip = db.query(Printer).filter(Printer.ip_address == ip).first()
+    if existing_ip:
+        raise HTTPException(status_code=400, detail="Printer already added")
+
     # ✅ Auto-set camera URL for Centauri — always at {ip}:3031/video
     camera_url = printer.camera_url
     if not camera_url and printer.type == "centauri":
-        camera_url = f"http://{printer.ip_address}:3031/video"
+        camera_url = f"http://{ip}:3031/video"
 
     db_printer = Printer(
-        name=printer.name,
-        ip_address=printer.ip_address,
+        name=name,
+        ip_address=ip,
         type=printer.type,
         brand=printer.brand,
         model=printer.model,
@@ -58,8 +76,10 @@ def create_printer(printer: PrinterCreate, db: Session = Depends(get_db)):
 
         return db_printer
     except IntegrityError:
+        # Fallback safety net in case of a race between the check above
+        # and the insert (two requests at almost the same instant).
         db.rollback()
-        raise HTTPException(status_code=400, detail="Printer with this name already exists")
+        raise HTTPException(status_code=400, detail="Printer name already exists")
 
 
 # ==============================
@@ -88,18 +108,28 @@ def update_printer(printer_id: int, data: PrinterUpdate, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Printer not found")
 
     if data.name is not None:
-        # check name uniqueness
+        name = data.name.strip()
+        # ✅ case-insensitive check, across all printer types
         existing = db.query(Printer).filter(
-            Printer.name == data.name,
+            func.lower(Printer.name) == name.lower(),
             Printer.id != printer_id
         ).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Printer name already in use")
-        printer.name = data.name
+            raise HTTPException(status_code=400, detail="Printer name already exists")
+        printer.name = name
 
     if data.ip_address is not None:
-        ip_changed = data.ip_address != printer.ip_address
-        printer.ip_address = data.ip_address
+        ip = data.ip_address.strip()
+        # ✅ IP uniqueness wasn't checked at all before -- across all
+        # printer types, since two printers can't share one network address.
+        existing_ip = db.query(Printer).filter(
+            Printer.ip_address == ip,
+            Printer.id != printer_id
+        ).first()
+        if existing_ip:
+            raise HTTPException(status_code=400, detail="Printer already added")
+        ip_changed = ip != printer.ip_address
+        printer.ip_address = ip
     else:
         ip_changed = False
 
@@ -120,7 +150,7 @@ def update_printer(printer_id: int, data: PrinterUpdate, db: Session = Depends(g
         return {"message": "Printer updated", "id": printer.id, "name": printer.name, "ip_address": printer.ip_address}
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Printer name already in use")
+        raise HTTPException(status_code=400, detail="Printer name already exists")
 
 
 # ==============================
