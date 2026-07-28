@@ -47,6 +47,7 @@ interface Printer {
   extruder_temp?: number | null; extruder_target?: number | null
   eta_seconds?: number | null
   error_message?: string | null; filament_detected?: boolean | null
+  light_on?: boolean | null
 }
 interface QueueItem { id: number; printer_id: number; batch_id: number; batch_name: string; status: string; position: number }
 interface Analytics {
@@ -299,9 +300,18 @@ function PrinterTray({ printer, onClose, onRefresh }: {
   const [tempLoading, setTempLoading]       = useState(false)
   const [tempMsg, setTempMsg]               = useState("")
 
-  // ✅ Light toggle state (Centauri only)
-  const [lightOn, setLightOn]     = useState(false)
+  // ✅ Light toggle state (Centauri only) -- initialized from, and kept in
+  // sync with, the printer's own live status pushes (printer.light_on),
+  // so a change made on the printer's physical panel/touchscreen shows up
+  // here too, instead of just reflecting the last button clicked in-app.
+  const [lightOn, setLightOn]     = useState(printer.light_on ?? false)
   const [lightLoading, setLightLoading] = useState(false)
+
+  useEffect(() => {
+    if (printer.light_on !== undefined && printer.light_on !== null) {
+      setLightOn(printer.light_on)
+    }
+  }, [printer.light_on])
 
   // ✅ Centauri-only Start Next options (plate/leveling/time-lapse)
   const [showCentauriOptions, setShowCentauriOptions] = useState(false)
@@ -333,6 +343,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
     setLightLoading(true)
     await apiFetch(`/printers/${printer.id}/light`, { method: "POST", body: JSON.stringify({ on }) })
     setLightOn(on)
+    onRefresh()
     setLightLoading(false)
   }
 

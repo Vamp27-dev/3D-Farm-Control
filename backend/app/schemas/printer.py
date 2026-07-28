@@ -38,6 +38,9 @@ class PrinterResponse(BaseModel):
     error_message:     Optional[str]  = None
     filament_detected: Optional[bool] = None
 
+    # ✅ Live chamber light state (Centauri only, None otherwise)
+    light_on: Optional[bool] = None
+
     model_config = {"from_attributes": True}
 
     # ✅ Always serialize datetimes as UTC with Z suffix so the frontend

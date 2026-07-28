@@ -36,5 +36,11 @@ class Printer(Base):
     # once discovered, cached here so we don't re-discover on every action
     mainboard_id = Column(String, nullable=True)
 
+    # ✅ Live chamber light state (Centauri only) -- synced from the
+    # printer's own status pushes, so it reflects reality even when the
+    # light is toggled from the printer's physical panel/touchscreen,
+    # not just from this app. None = unknown / not a Centauri printer.
+    light_on = Column(Boolean, nullable=True)
+
     batch_jobs = relationship("BatchPrinter", back_populates="printer")
     tags       = relationship("Tag", secondary="printer_tags", back_populates="printers")

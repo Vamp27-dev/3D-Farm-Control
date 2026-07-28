@@ -425,6 +425,13 @@ class CentauriListener:
             printer.error_message = data["error_message"]
             printer.filament_detected = data["filament_detected"]
 
+            # ✅ Only overwrite light_on when this push actually reports it
+            # (see normalize_status) -- keeps last-known value on pushes
+            # that don't carry LightStatus, instead of resetting to
+            # unknown/off every 5s.
+            if data.get("light_on") is not None:
+                printer.light_on = data["light_on"]
+
             db.commit()
 
             self._prev_status = new_status
@@ -658,6 +665,19 @@ def normalize_status(raw: dict) -> dict:
     elif state == "paused":
         error_message = "Print paused"
 
+    # ✅ Chamber light state -- reported as a sibling field in the same
+    # Status push (LightStatus.SecondLight), when the firmware includes
+    # it. Not every status push necessarily carries it, so we return
+    # None ("unknown, don't touch it") rather than assuming off, and the
+    # caller only writes it to the DB when it's actually present -- this
+    # way a physical button-press on the printer itself gets reflected
+    # here on the very next push that does include it, instead of the
+    # app's last-clicked-in-software value silently winning forever.
+    light_status = raw.get("LightStatus")
+    light_on = None
+    if isinstance(light_status, dict) and "SecondLight" in light_status:
+        light_on = bool(light_status["SecondLight"])
+
     return {
         "state":             state,
         "progress":          progress,
@@ -669,6 +689,7 @@ def normalize_status(raw: dict) -> dict:
         "eta_seconds":       eta_seconds,
         "error_message":     error_message,
         "filament_detected": None,
+        "light_on":          light_on,
     }
 
 

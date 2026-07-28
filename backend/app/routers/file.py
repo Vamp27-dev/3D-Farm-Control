@@ -103,13 +103,20 @@ def delete_file(file_id: int, db: Session = Depends(get_db)):
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
 
-    # ❌ prevent deletion if used in batch
-    batch_using_file = db.query(Batch).filter(Batch.file_id == file_id).first()
+    # ❌ prevent deletion only if an ACTIVE (non-archived) batch uses it.
+    # BUG (confirmed): the old check matched ANY batch ever created with
+    # this file_id, including ones fully completed and archived weeks
+    # ago -- batches are never deleted, only archived, so old files got
+    # permanently stuck "in use" forever even with zero active batches.
+    batch_using_file = db.query(Batch).filter(
+        Batch.file_id == file_id,
+        Batch.archived == False,
+    ).first()
 
     if batch_using_file:
         raise HTTPException(
             status_code=400,
-            detail="File cannot be deleted because it is used in a batch"
+            detail="File cannot be deleted because it is used in an active batch"
         )
 
     file_path = os.path.join(STORAGE_PATH, db_file.stored_name)

@@ -586,6 +586,14 @@ async def toggle_light(printer_id: int, body: LightBody, db: Session = Depends(g
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to send light command: {e}")
 
+    # ✅ Optimistic update -- reflects instantly in the UI. The next status
+    # push from the printer (normalize_status -> light_on) will correct
+    # this automatically if it doesn't match reality, e.g. if the command
+    # silently failed, or if someone changes it from the printer's own
+    # panel a moment later.
+    printer.light_on = body.on
+    db.commit()
+
     return {"message": f"Light turned {'on' if body.on else 'off'}"}
 
 # ══════════════════════════════════════════════════════════════════
