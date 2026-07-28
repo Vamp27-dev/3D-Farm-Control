@@ -12,6 +12,7 @@ import PrintHistory from "./PrintHistory"
 import { useTheme } from "./theme"
 import AddPrinterModal from "./AddPrinterModal"
 import PrinterIcon from "./PrinterIcon"
+import CentauriPrintOptionsModal, { type CentauriPrintOptions } from "./CentauriPrintOptionsModal"
 
 // ✅ Relative URL: works from any IP/network automatically
 // When served via Docker (production), frontend and backend are on the same host+port
@@ -302,6 +303,9 @@ function PrinterTray({ printer, onClose, onRefresh }: {
   const [lightOn, setLightOn]     = useState(false)
   const [lightLoading, setLightLoading] = useState(false)
 
+  // ✅ Centauri-only Start Next options (plate/leveling/time-lapse)
+  const [showCentauriOptions, setShowCentauriOptions] = useState(false)
+
   const loadQueue = useCallback(async () => {
     const data = await apiFetch(`/printers/${printer.id}/queue`)
     if (data) setQueue(data)
@@ -340,9 +344,21 @@ function PrinterTray({ printer, onClose, onRefresh }: {
     setLoading(false)
   }
 
-  const startNext = async () => {
+  // Klipper/Neptune: starts immediately, unchanged.
+  // Centauri: opens the plate/leveling/time-lapse options modal first.
+  const startNextClick = () => {
+    if (printer.type === "centauri") { setShowCentauriOptions(true); return }
+    doStartNext({})
+  }
+
+  const doStartNext = async (opts: Partial<CentauriPrintOptions>) => {
     setLoading(true)
-    const res = await apiFetch(`/printers/${printer.id}/start_next`, { method: "POST" })
+    const params = new URLSearchParams()
+    if (opts.bedLeveling !== undefined) params.set("bed_leveling", String(opts.bedLeveling))
+    if (opts.plateType   !== undefined) params.set("plate_type",   String(opts.plateType))
+    if (opts.timeLapse   !== undefined) params.set("time_lapse",   String(opts.timeLapse))
+    const qs = params.toString()
+    const res = await apiFetch(`/printers/${printer.id}/start_next${qs ? `?${qs}` : ""}`, { method: "POST" })
     if (res?.detail) alert(res.detail)
     else { onRefresh(); loadQueue() }
     setLoading(false)
@@ -504,7 +520,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
           </div>
         )}
         {isIdle && (
-          <TBtn onClick={startNext} color="#2563eb" disabled={loading || queue.length === 0}>
+          <TBtn onClick={startNextClick} color="#2563eb" disabled={loading || queue.length === 0}>
             {queue.length === 0 ? "Queue empty" : "▶ Start Next Job"}
           </TBtn>
         )}
@@ -611,6 +627,16 @@ function PrinterTray({ printer, onClose, onRefresh }: {
       </div>
 
       </div>{/* end scrollable body */}
+
+      {showCentauriOptions && (
+        <CentauriPrintOptionsModal
+          fileName={queue[0]?.batch_name ?? "Next job"}
+          printerLabel={printer.name}
+          loading={loading}
+          onCancel={() => setShowCentauriOptions(false)}
+          onConfirm={opts => { setShowCentauriOptions(false); doStartNext(opts) }}
+        />
+      )}
     </div>
   )
 }

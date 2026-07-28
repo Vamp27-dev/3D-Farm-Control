@@ -192,6 +192,15 @@ def list_batches(include_archived: bool = False, db: Session = Depends(get_db)):
                 else:
                     status = "unknown"
 
+            # ✅ Batches are always single-type (mixing prevented at creation),
+            # so the first job's printer type tells us the whole batch's type.
+            # Frontend uses this to decide whether to show Centauri-only
+            # print options (plate/leveling/time-lapse) before starting.
+            printer_type = None
+            if jobs:
+                first_printer = db.query(Printer).filter(Printer.id == jobs[0].printer_id).first()
+                printer_type = first_printer.type if first_printer else None
+
             out.append({
                 "id": batch.id,                                   # real ID (internal use)
                 "serial": serial,                                 # ✅ display number — independent sequence
@@ -199,6 +208,7 @@ def list_batches(include_archived: bool = False, db: Session = Depends(get_db)):
                 "file_name": file_name,
                 "status": status,
                 "archived": batch.archived,
+                "printer_type": printer_type,
                 "created_at": batch.created_at.isoformat() + "Z" if batch.created_at else None,
             })
         return out
@@ -232,6 +242,7 @@ def batch_printers(batch_id: int, db: Session = Depends(get_db)):
             "job_id": job.id,
             "printer_id": job.printer_id,
             "printer_name": printer.name if printer else f"Printer #{job.printer_id}",
+            "printer_type": printer.type if printer else None,
             "printer_status": printer.status if printer else "unknown",
             "job_status": job.status,
             "progress": printer.progress if printer and job.status == "printing" else None,
@@ -270,7 +281,21 @@ def delete_batch(batch_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{batch_id}/start",
              dependencies=[Depends(require_role(["admin", "operator"]))])
-async def start_batch(batch_id: int, db: Session = Depends(get_db)):
+async def start_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    bed_leveling: bool = True,
+    plate_type: int = 0,
+    time_lapse: bool = False,
+):
+    """
+    bed_leveling / plate_type / time_lapse are Centauri-only options,
+    chosen by the user in the Start dialog on the frontend. They are
+    ONLY passed to centauri.start_print() below -- the Klipper/Neptune
+    branch (upload_file_to_printer + start_print) is completely
+    untouched and never receives them.
+      plate_type: 0 = Textured (Side A), 1 = Smooth (Side B)
+    """
     from app.services.printer_service import upload_file_to_printer, start_print
     from app.services import centauri_service as centauri
     from app.services.centauri_upload import upload_file_to_centauri
@@ -317,7 +342,10 @@ async def start_batch(batch_id: int, db: Session = Depends(get_db)):
                         job.status = "queued"
                         queued += 1
                         continue
-                    await centauri.start_print(printer.id, batch_mb_id, upload_result["remote_path"])
+                    await centauri.start_print(
+                        printer.id, batch_mb_id, upload_result["remote_path"],
+                        bed_leveling=bed_leveling, plate_type=plate_type, time_lapse=time_lapse,
+                    )
                 else:
                     uploaded_name = await upload_file_to_printer(printer.ip_address, file_path)
                     await start_print(printer.ip_address, uploaded_name)

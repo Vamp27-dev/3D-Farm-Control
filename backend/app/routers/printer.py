@@ -294,7 +294,19 @@ def assign_tag_to_printer(printer_id: int, tag_id: int, db: Session = Depends(ge
 # ==============================
 
 @router.post("/{printer_id}/start_next")
-async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
+async def start_next_job(
+    printer_id: int,
+    db: Session = Depends(get_db),
+    bed_leveling: bool = True,
+    plate_type: int = 0,
+    time_lapse: bool = False,
+):
+    """
+    bed_leveling / plate_type / time_lapse are Centauri-only options
+    (ignored for Klipper/Neptune printers -- ✅ Neptune code path below
+    is untouched and never receives them).
+      plate_type: 0 = Textured (Side A), 1 = Smooth (Side B)
+    """
     printer = db.query(Printer).filter(Printer.id == printer_id).first()
     if not printer:
         raise HTTPException(status_code=404, detail="Printer not found")
@@ -328,7 +340,10 @@ async def start_next_job(printer_id: int, db: Session = Depends(get_db)):
             if not upload_result["success"]:
                 raise HTTPException(status_code=500, detail="Upload to Centauri printer failed")
             mainboard_id_for_start = centauri.get_mainboard_id_for(printer.id) or printer.mainboard_id or ""
-            await centauri.start_print(printer.id, mainboard_id_for_start, upload_result["remote_path"])
+            await centauri.start_print(
+                printer.id, mainboard_id_for_start, upload_result["remote_path"],
+                bed_leveling=bed_leveling, plate_type=plate_type, time_lapse=time_lapse,
+            )
         except HTTPException:
             raise
         except Exception as e:

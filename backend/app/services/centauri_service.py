@@ -676,37 +676,71 @@ async def cancel_print(printer_id: int, mainboard_id: str = ""):
     return await send_command_via_listener(printer_id, proto.Cmd.SEND_PRINTER_STOP_PRINT, {})
 
 
-async def start_print(printer_id: int, mainboard_id: str, filename: str):
+async def start_print(printer_id: int, mainboard_id: str, filename: str,
+                       bed_leveling: bool = True, plate_type: int = 0,
+                       time_lapse: bool = False):
     """
-    Start a print on a Centauri printer -- sends Cmd 128 EXACTLY as defined
-    in the SDCP V3.0.0 spec (Filename + StartLayer only), routed through
-    the listener's single open connection.
+    Start a print on a Centauri Carbon printer -- sends Cmd 128, routed
+    through the listener's single open connection.
 
     REMOVED (root cause of firmware freeze, confirmed by logs):
       1. The "send STOP then wait 1.5s then START" workaround -- never part
          of the official spec, and sending STOP (Cmd 130) to a printer with
          no active job is undefined firmware behavior.
-      2. Extra non-spec payload fields (Calibration_switch, PrintPlatformType,
-         TP_Switch, slot_map) -- the spec's Start Print example shows ONLY
-         Filename and StartLayer. Extra unexpected fields in a state-changing
-         command can crash lean embedded firmware that doesn't validate
-         unknown keys gracefully.
-      3. Opening a second standalone WebSocket connection for this command
+      2. Opening a second standalone WebSocket connection for this command
          -- confirmed by logs to crash the printer's WebSocket server,
          knocking the listener's existing connection out with
          "Connect call failed" immediately after.
+         (The freeze was actually caused by the missing "Topic" envelope
+         field on build_packet(), fixed separately -- it was NOT caused by
+         the extra payload fields below. See point below.)
 
-    filename should be the bare name as returned by the upload step
-    (e.g. "model.gcode"), matching the spec's own Start Print example
-    ("hitwork.ctb" -- no "/local/" prefix).
+    filename MUST be the FULL remote path as returned by the upload step
+    (e.g. "/local/model.gcode"), NOT a bare filename. CONFIRMED via real
+    hardware testing: the upload endpoint stores the file under "/local/",
+    and Start Print must reference that exact same path or the firmware
+    replies Ack=2 (File Not Found).
+
+    EXTRA PAYLOAD FIELDS (CONFIRMED REQUIRED -- captured live from the
+    printer's own official web control UI via raw WebSocket traffic
+    inspection on 2026-07-28, real hardware, real successful start that
+    transitioned CurrentStatus 0 -> 1 immediately after):
+
+        {
+          "Cmd": 128,
+          "Data": {
+            "Filename": "/local/....gcode",
+            "StartLayer": 0,
+            "Calibration_switch": 1,   // 1 = run heated bed leveling first
+            "PrintPlatformType": 0,    // 0 = Textured plate (A), 1 = Smooth (B)
+            "Tlp_Switch": 1,           // 1 = enable time-lapse capture
+            "slot_map": []             // unused on this setup (AMS-related)
+          },
+          "From": 1
+        }
+
+    A prior revision of this function dropped these fields entirely
+    (Calibration_switch, PrintPlatformType, Tlp_Switch, slot_map),
+    incorrectly blaming them for a firmware freeze that was actually
+    caused by a missing "Topic" field elsewhere. Without these fields the
+    firmware acks the Start command as if it worked but never actually
+    begins printing -- which matches exactly the symptom reported ("file
+    uploads fine, software says it started, printer never prints").
+    Do not strip these fields again without new hardware evidence.
     """
-    bare_filename = filename.rsplit("/", 1)[-1]
+    full_filename = filename if "/" in filename else f"/local/{filename}"
 
     payload = {
-        "Filename":   bare_filename,
-        "StartLayer": 0,
+        "Filename":           full_filename,
+        "StartLayer":         0,
+        "Calibration_switch": 1 if bed_leveling else 0,
+        "PrintPlatformType":  plate_type,
+        "Tlp_Switch":         1 if time_lapse else 0,
+        "slot_map":           [],
     }
-    print(f"[Centauri Start] printer_id={printer_id} mainboard_id={mainboard_id} filename={bare_filename}")
+    print(f"[Centauri Start] printer_id={printer_id} mainboard_id={mainboard_id} "
+          f"filename={full_filename} bed_leveling={bed_leveling} "
+          f"plate_type={plate_type} time_lapse={time_lapse}")
 
     resp = await send_command_via_listener(
         printer_id, proto.Cmd.SEND_PRINTER_START_PRINT, payload, timeout=8.0

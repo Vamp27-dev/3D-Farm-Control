@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { toISTDate, timeAgo } from "./utils/date"
 import { apiFetch } from "./App"
+import CentauriPrintOptionsModal, { type CentauriPrintOptions } from "./CentauriPrintOptionsModal"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
 
@@ -13,6 +14,7 @@ interface Batch {
   file_name: string
   status: string
   archived: boolean
+  printer_type: string | null   // "centauri" | "klipper" | null (empty batch)
   created_at: string
 }
 
@@ -593,6 +595,7 @@ function Batches() {
   const [summaries, setSummaries]       = useState<Record<number, any>>({})
   const [batchPrinters, setBatchPrinters] = useState<Record<number, BatchPrinterJob[]>>({})
   const [startingBatchId, setStartingBatchId] = useState<number | null>(null)
+  const [centauriStartBatch, setCentauriStartBatch] = useState<Batch | null>(null)  // batch pending plate/leveling/timelapse choice
 
   // ✅ Completed batches — separate collapsible section, fetched on demand
   const [showCompleted, setShowCompleted]       = useState(false)
@@ -641,14 +644,37 @@ function Batches() {
     loadBatches()
   }
 
-  const startBatch = async (id: number, e: React.MouseEvent) => {
+  // Klipper/Neptune batches start immediately (unchanged behavior).
+  // Centauri batches open the options modal first -- doStartBatch() below
+  // is the actual request, reused by both paths.
+  const startBatchClick = (batch: Batch, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (startingBatchId !== null) return  // prevent double-click
+    if (startingBatchId !== null) return
+    if (batch.printer_type === "centauri") {
+      setCentauriStartBatch(batch)
+      return
+    }
+    doStartBatch(batch.id, {})
+  }
+
+  const confirmCentauriStart = (opts: CentauriPrintOptions) => {
+    if (!centauriStartBatch) return
+    const id = centauriStartBatch.id
+    setCentauriStartBatch(null)
+    doStartBatch(id, opts)
+  }
+
+  const doStartBatch = async (id: number, opts: Partial<CentauriPrintOptions>) => {
     setStartingBatchId(id)
     try {
       const token = localStorage.getItem("token")
+      const params = new URLSearchParams()
+      if (opts.bedLeveling !== undefined) params.set("bed_leveling", String(opts.bedLeveling))
+      if (opts.plateType   !== undefined) params.set("plate_type",   String(opts.plateType))
+      if (opts.timeLapse   !== undefined) params.set("time_lapse",   String(opts.timeLapse))
+      const qs = params.toString()
       const raw = await fetch(
-        `${API_BASE}/batches/${id}/start`,
+        `${API_BASE}/batches/${id}/start${qs ? `?${qs}` : ""}`,
         {
           method: "POST",
           headers: {
@@ -784,7 +810,7 @@ function Batches() {
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                       {(batch.status === "queued" || batch.status === "empty") && (
                         <button
-                          onClick={e => startBatch(batch.id, e)}
+                          onClick={e => startBatchClick(batch, e)}
                           disabled={startingBatchId === batch.id}
                           style={{
                             background: startingBatchId === batch.id ? "var(--card2)" : "#10b98118",
@@ -958,6 +984,16 @@ function Batches() {
 
       {showCreate && (
         <CreateBatchModal onClose={() => setShowCreate(false)} onCreated={loadBatches} />
+      )}
+
+      {centauriStartBatch && (
+        <CentauriPrintOptionsModal
+          fileName={centauriStartBatch.file_name}
+          printerLabel={centauriStartBatch.name}
+          loading={startingBatchId === centauriStartBatch.id}
+          onCancel={() => setCentauriStartBatch(null)}
+          onConfirm={confirmCentauriStart}
+        />
       )}
     </div>
   )
