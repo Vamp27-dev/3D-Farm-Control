@@ -24,7 +24,7 @@ function Toggle({ checked, onChange, label, sub }: {
       style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 12px", background: "var(--card2)",
-        border: "1px solid var(--border)", borderRadius: 8,
+        border: "1px solid var(--border)", borderRadius: 10,
         cursor: "pointer", marginBottom: 10,
       }}
     >
@@ -34,7 +34,7 @@ function Toggle({ checked, onChange, label, sub }: {
       </div>
       <div style={{
         width: 38, height: 22, borderRadius: 11, position: "relative",
-        background: checked ? "#2563eb" : "var(--border)",
+        background: checked ? "var(--primary)" : "var(--border)",
         transition: "background 0.15s", flexShrink: 0,
       }}>
         <div style={{
@@ -93,10 +93,10 @@ export default function CentauriPrintOptionsModal({
                 key={opt.val}
                 onClick={() => setPlateType(opt.val)}
                 style={{
-                  flex: 1, padding: "10px 0", borderRadius: 8,
-                  border: `1px solid ${plateType === opt.val ? "#2563eb" : "var(--border)"}`,
+                  flex: 1, padding: "10px 0", borderRadius: 10,
+                  border: `1px solid ${plateType === opt.val ? "var(--primary)" : "var(--border)"}`,
                   background: plateType === opt.val ? "#2563eb18" : "var(--card2)",
-                  color: plateType === opt.val ? "#2563eb" : "var(--text)",
+                  color: plateType === opt.val ? "var(--primary)" : "var(--text)",
                   cursor: "pointer", fontSize: 13, fontWeight: 600,
                 }}
               >
@@ -128,7 +128,7 @@ export default function CentauriPrintOptionsModal({
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onCancel} disabled={loading} style={{
             flex: 1, padding: "9px 0", background: "none",
-            border: "1px solid var(--border)", borderRadius: 6,
+            border: "1px solid var(--border)", borderRadius: 10,
             color: "var(--text-muted)", cursor: "pointer", fontSize: 13, fontWeight: 500,
           }}>Cancel</button>
           <button
@@ -136,8 +136,8 @@ export default function CentauriPrintOptionsModal({
             disabled={loading}
             style={{
               flex: 2, padding: "9px 0",
-              background: loading ? "var(--card2)" : "#2563eb",
-              border: "none", borderRadius: 6,
+              background: loading ? "var(--card2)" : "var(--primary)",
+              border: "none", borderRadius: 10,
               color: loading ? "var(--text-muted)" : "#fff",
               cursor: loading ? "not-allowed" : "pointer",
               fontWeight: 600, fontSize: 13,

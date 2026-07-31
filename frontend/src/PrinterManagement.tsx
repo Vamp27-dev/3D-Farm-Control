@@ -88,7 +88,7 @@ function EditPrinterModal({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60,
     }}>
       <div style={{
-        background: "var(--card)", border: "1px solid #1e3a5f",
+        background: "var(--card)", border: "1px solid var(--border)",
         borderRadius: 12, padding: 28, width: 380,
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
@@ -114,8 +114,8 @@ function EditPrinterModal({
               placeholder={placeholder}
               style={{
                 width: "100%", padding: "8px 12px",
-                background: "var(--card2)", border: "1px solid #1e293b",
-                borderRadius: 6, color: "var(--text)", fontSize: 14,
+                background: "var(--card2)", border: "1px solid var(--border)",
+                borderRadius: 10, color: "var(--text)", fontSize: 14,
                 boxSizing: "border-box", outline: "none",
               }}
             />
@@ -124,22 +124,22 @@ function EditPrinterModal({
 
         {error && (
           <div style={{
-            background: "#ef444415", border: "1px solid #ef4444",
-            borderRadius: 6, padding: "8px 12px", marginBottom: 14,
-            fontSize: 12, color: "#ef4444",
+            background: "#ef444415", border: "1px solid var(--danger)",
+            borderRadius: 10, padding: "8px 12px", marginBottom: 14,
+            fontSize: 12, color: "var(--danger)",
           }}>{error}</div>
         )}
 
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <button onClick={onClose} style={{
             flex: 1, padding: "8px 0", background: "none",
-            border: "1px solid #1e293b", borderRadius: 6,
-            color: "#64748b", cursor: "pointer", fontSize: 13,
+            border: "1px solid var(--border)", borderRadius: 10,
+            color: "var(--secondary)", cursor: "pointer", fontSize: 13,
           }}>Cancel</button>
           <button onClick={save} disabled={loading || !hasChanges} style={{
             flex: 2, padding: "8px 0",
-            background: loading || !hasChanges ? "var(--card2)" : "#3b82f6",
-            border: "none", borderRadius: 6,
+            background: loading || !hasChanges ? "var(--card2)" : "var(--primary)",
+            border: "none", borderRadius: 10,
             color: loading || !hasChanges ? "var(--text-dim)" : "#fff",
             cursor: loading || !hasChanges ? "not-allowed" : "pointer",
             fontWeight: 600, fontSize: 13,
@@ -156,10 +156,10 @@ function EditPrinterModal({
 
 function StatusDot({ status }: { status: string }) {
   const color: Record<string, string> = {
-    printing: "#10b981", paused: "#f59e0b",
-    idle: "#3b82f6", offline: "#ef4444",
+    printing: "var(--success)", paused: "var(--warning)",
+    idle: "var(--primary)", offline: "var(--danger)",
   }
-  const c = color[status] ?? "#64748b"
+  const c = color[status] ?? "var(--secondary)"
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{
@@ -235,12 +235,12 @@ export default function PrinterManagement() {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or IP…"
-            style={{ padding: "6px 12px", borderRadius: 6, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: 200 }} />
+            style={{ padding: "6px 12px", borderRadius: 10, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: 200 }} />
           {/* ✅ Add Printer — admin only */}
           {role === "admin" && (
             <button onClick={() => setShowAddModal(true)} style={{
-              background: "#2563eb", border: "none", color: "#fff",
-              borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              background: "var(--primary)", border: "none", color: "#fff",
+              borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
               display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
             }}>
               <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add Printer
@@ -253,9 +253,9 @@ export default function PrinterManagement() {
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Printers", value: total,    accent: "#4a6080" },
-            { label: "Online",         value: online,   accent: "#10b981" },
-            { label: "Printing Now",   value: printing, accent: "#2563eb" },
+            { label: "Total Printers", value: total,    accent: "var(--text-dim)" },
+            { label: "Online",         value: online,   accent: "var(--success)" },
+            { label: "Printing Now",   value: printing, accent: "var(--primary)" },
           ].map(({ label, value, accent }) => (
             <div key={label} style={{ background: "var(--card)", borderRadius: 10, padding: "14px 18px", border: "1px solid var(--border)", borderTop: `2px solid ${accent}` }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
@@ -265,7 +265,7 @@ export default function PrinterManagement() {
         </div>
 
         {/* Table */}
-        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "2fr 1.8fr 1fr 1fr 130px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
@@ -294,7 +294,7 @@ export default function PrinterManagement() {
                   {printer.location && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>📍 {printer.location}</div>}
                 </div>
                 <div>
-                  <code style={{ fontSize: 12, color: "#93c5fd", background: "var(--card2)", padding: "2px 8px", borderRadius: 4, border: "1px solid var(--border)", fontFamily: "monospace" }}>
+                  <code style={{ fontSize: 12, color: "var(--primary)", background: "var(--card2)", padding: "2px 8px", borderRadius: 4, border: "1px solid var(--border)", fontFamily: "monospace" }}>
                     {printer.ip_address}
                   </code>
                 </div>
@@ -302,13 +302,13 @@ export default function PrinterManagement() {
                 <div>
                   <StatusDot status={printer.status} />
                   {printer.status === "printing" && (
-                    <div style={{ fontSize: 10, color: "#10b981", marginTop: 2 }}>{printer.progress.toFixed(1)}%</div>
+                    <div style={{ fontSize: 10, color: "var(--success)", marginTop: 2 }}>{printer.progress.toFixed(1)}%</div>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   <button onClick={() => setEditing(printer)} style={{
-                    background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
-                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+                    borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>Edit</button>
                   <button
                     onClick={() => deletePrinter(printer)}
@@ -316,9 +316,9 @@ export default function PrinterManagement() {
                     title={printer.status === "printing" ? "Cannot delete while printing" : ""}
                     style={{
                       background: "none",
-                      border: `1px solid ${printer.status === "printing" ? "var(--border)" : "#ef4444"}`,
-                      color: printer.status === "printing" ? "var(--text-dim)" : "#ef4444",
-                      borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                      border: `1px solid ${printer.status === "printing" ? "var(--border)" : "var(--danger)"}`,
+                      color: printer.status === "printing" ? "var(--text-dim)" : "var(--danger)",
+                      borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600,
                       cursor: printer.status === "printing" ? "not-allowed" : "pointer",
                       opacity: deletingId === printer.id ? 0.5 : 1,
                     }}

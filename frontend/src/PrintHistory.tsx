@@ -20,9 +20,9 @@ function fmtDuration(sec: number | null) {
 }
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  success:   { bg: "#10b98118", color: "#10b981" },
-  failed:    { bg: "#ef444418", color: "#ef4444" },
-  cancelled: { bg: "#64748b18", color: "#64748b" },
+  success:   { bg: "#10b98118", color: "var(--success)" },
+  failed:    { bg: "#ef444418", color: "var(--danger)" },
+  cancelled: { bg: "#64748b18", color: "var(--secondary)" },
 }
 
 const LIMIT = 50
@@ -100,12 +100,12 @@ export default function PrintHistory() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setShowDeleteRange(v => !v)} style={{
-            background: "#ef444418", border: "1px solid #ef4444", color: "#ef4444",
-            borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            background: "#ef444418", border: "1px solid var(--danger)", color: "var(--danger)",
+            borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>🗑 Delete Range</button>
           <button onClick={exportCSV} style={{
-            background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
-            borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+            borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>↓ Export CSV</button>
         </div>
       </div>
@@ -118,7 +118,7 @@ export default function PrintHistory() {
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Delete history from</span>
           <input type="date" value={deleteStart} onChange={e => setDeleteStart(e.target.value)}
             style={{
-              padding: "6px 10px", borderRadius: 6, fontSize: 13,
+              padding: "6px 10px", borderRadius: 10, fontSize: 13,
               background: "var(--card2)", border: "1px solid var(--border)",
               color: "var(--text)", outline: "none",
             }}
@@ -126,20 +126,20 @@ export default function PrintHistory() {
           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>to</span>
           <input type="date" value={deleteEnd} onChange={e => setDeleteEnd(e.target.value)}
             style={{
-              padding: "6px 10px", borderRadius: 6, fontSize: 13,
+              padding: "6px 10px", borderRadius: 10, fontSize: 13,
               background: "var(--card2)", border: "1px solid var(--border)",
               color: "var(--text)", outline: "none",
             }}
           />
           <span style={{ fontSize: 11, color: "var(--text-dim)" }}>(inclusive, IST dates)</span>
           <button onClick={deleteRange} disabled={deleting} style={{
-            padding: "6px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-            background: deleting ? "var(--card2)" : "#ef4444",
+            padding: "6px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+            background: deleting ? "var(--card2)" : "var(--danger)",
             border: "none", color: deleting ? "var(--text-muted)" : "#fff",
             cursor: deleting ? "not-allowed" : "pointer",
           }}>{deleting ? "Deleting…" : "Delete"}</button>
           <button onClick={() => setShowDeleteRange(false)} style={{
-            padding: "6px 16px", borderRadius: 6, fontSize: 13,
+            padding: "6px 16px", borderRadius: 10, fontSize: 13,
             background: "none", border: "1px solid var(--border)", color: "var(--text-muted)",
             cursor: "pointer",
           }}>Cancel</button>
@@ -150,10 +150,10 @@ export default function PrintHistory() {
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Jobs",  value: total,         accent: "#4a6080" },
-            { label: "Successful",  value: successCount,  accent: "#10b981" },
-            { label: "Failed",      value: failedCount,   accent: "#ef4444" },
-            { label: "Cancelled",   value: cancelledCount,accent: "#64748b" },
+            { label: "Total Jobs",  value: total,         accent: "var(--text-dim)" },
+            { label: "Successful",  value: successCount,  accent: "var(--success)" },
+            { label: "Failed",      value: failedCount,   accent: "var(--danger)" },
+            { label: "Cancelled",   value: cancelledCount,accent: "var(--secondary)" },
           ].map(({ label, value, accent }) => (
             <div key={label} style={{
               background: "var(--card)", borderRadius: 10, padding: "14px 18px",
@@ -170,8 +170,8 @@ export default function PrintHistory() {
           {(["all","success","failed","cancelled"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
               padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer",
-              background: filter === f ? "#2563eb" : "var(--card)",
-              border: `1px solid ${filter === f ? "#2563eb" : "var(--border)"}`,
+              background: filter === f ? "var(--primary)" : "var(--card)",
+              border: `1px solid ${filter === f ? "var(--primary)" : "var(--border)"}`,
               color: filter === f ? "#fff" : "var(--text-muted)",
             }}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
           ))}
@@ -186,7 +186,7 @@ export default function PrintHistory() {
         </div>
 
         {/* Table */}
-        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "50px 1.5fr 70px 1.3fr 1.3fr 90px 80px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
@@ -240,7 +240,7 @@ export default function PrintHistory() {
         {total > LIMIT && (
           <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 16 }}>
             <button disabled={offset===0} onClick={() => setOffset(Math.max(0,offset-LIMIT))} style={{
-              padding: "6px 16px", borderRadius: 6, fontSize: 13,
+              padding: "6px 16px", borderRadius: 10, fontSize: 13,
               background: "var(--card)", border: "1px solid var(--border)",
               color: offset===0 ? "var(--text-muted)" : "var(--text)",
               cursor: offset===0 ? "not-allowed" : "pointer",
@@ -249,7 +249,7 @@ export default function PrintHistory() {
               {offset+1}–{Math.min(offset+LIMIT,total)} of {total}
             </span>
             <button disabled={offset+LIMIT>=total} onClick={() => setOffset(offset+LIMIT)} style={{
-              padding: "6px 16px", borderRadius: 6, fontSize: 13,
+              padding: "6px 16px", borderRadius: 10, fontSize: 13,
               background: "var(--card)", border: "1px solid var(--border)",
               color: offset+LIMIT>=total ? "var(--text-muted)" : "var(--text)",
               cursor: offset+LIMIT>=total ? "not-allowed" : "pointer",

@@ -1,6 +1,7 @@
 import os
 from fastapi import APIRouter, Depends, UploadFile, File as FastAPIFile, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import SessionLocal
 from app.models.folder import Folder
@@ -8,6 +9,7 @@ from app.models.file import File
 from app.schemas.file import FolderCreate, FolderResponse, FileResponse
 from app.core.security import require_role
 from app.models.batch import Batch
+from app.models.job_history import JobHistory
 
 router = APIRouter(prefix="/files", tags=["Files"])
 
@@ -119,6 +121,23 @@ def delete_file(file_id: int, db: Session = Depends(get_db)):
             detail="File cannot be deleted because it is used in an active batch"
         )
 
+    # ✅ REGRESSION FIX: allowing deletion past the check above wasn't
+    # enough on its own -- archived batches AND job_history rows still
+    # hold a real foreign key to this file_id in Postgres, and that FK
+    # has no ON DELETE behavior configured, so the database itself was
+    # rejecting db.delete(db_file) with an IntegrityError, which wasn't
+    # caught anywhere -> surfaced to the person as a generic, unhelpful
+    # "Delete failed". Null out those historical references first (this
+    # keeps the batch/job-history *records* intact for auditing -- printer
+    # name, status, timestamps -- it just can no longer point at a file
+    # that no longer exists on disk).
+    db.query(Batch).filter(
+        Batch.file_id == file_id, Batch.archived == True
+    ).update({Batch.file_id: None})
+    db.query(JobHistory).filter(
+        JobHistory.file_id == file_id
+    ).update({JobHistory.file_id: None})
+
     file_path = os.path.join(STORAGE_PATH, db_file.stored_name)
 
     if os.path.exists(file_path):
@@ -128,7 +147,14 @@ def delete_file(file_id: int, db: Session = Depends(get_db)):
         print("File not found on disk")
 
     db.delete(db_file)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="File cannot be deleted -- still referenced by a printer's queue or job record"
+        )
 
     return {"message": "File deleted successfully"}
 

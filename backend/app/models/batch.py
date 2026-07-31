@@ -10,7 +10,7 @@ class Batch(Base):
 
     id         = Column(Integer, primary_key=True, index=True)
     name       = Column(String, nullable=True)   # ✅ custom name, optional
-    file_id    = Column(Integer, ForeignKey("files.id"), nullable=False)
+    file_id    = Column(Integer, ForeignKey("files.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # ✅ archived = True once every printer job reaches a terminal state

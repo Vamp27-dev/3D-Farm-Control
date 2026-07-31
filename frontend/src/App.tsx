@@ -13,6 +13,7 @@ import { useTheme } from "./theme"
 import AddPrinterModal from "./AddPrinterModal"
 import PrinterIcon from "./PrinterIcon"
 import CentauriPrintOptionsModal, { type CentauriPrintOptions } from "./CentauriPrintOptionsModal"
+import Button from "./Button"
 
 // ✅ Relative URL: works from any IP/network automatically
 // When served via Docker (production), frontend and backend are on the same host+port
@@ -66,23 +67,57 @@ function fmtETA(sec: number | null | undefined): string {
 // ─── CSS Variables (defined in theme.tsx, applied here as inline fallbacks) ──
 
 const S = {
-  bg:      "var(--bg,#050d1a)",
-  card:    "var(--card,#0a1628)",
-  card2:   "var(--card2,#0d1e35)",
-  border:  "var(--border,#1a3a5c)",
-  borderS: "var(--border-subtle,#0f1f35)",
-  text:    "var(--text,#f1f5f9)",
-  muted:   "var(--text-muted,#4a6080)",
-  dim:     "var(--text-dim,#2a4060)",
-  hover:   "var(--hover,#0d1e35)",
+  bg:      "var(--bg,#1a1d27)",
+  card:    "var(--card,#232733)",
+  card2:   "var(--card2,#2b303c)",
+  border:  "var(--border,#383e4c)",
+  borderS: "var(--border-subtle,#2b303c)",
+  text:    "var(--text,#f1f1f5)",
+  muted:   "var(--text-muted,#b0b4c2)",
+  dim:     "var(--text-dim,#767c8c)",
+  hover:   "var(--hover,#2b303c)",
+
+  // ✅ Accent tokens — identical across both themes (per explicit request:
+  // "same accent, same gradient, same colour pallete... for both dark and
+  // light theme"). Sampled directly from the reference video frames.
+  primary:      "var(--primary,#434db5)",
+  primary2:     "var(--primary-2,#7d4dbf)",
+  primaryHover: "var(--primary-hover,#3a4399)",
+  gradient:     "var(--gradient-primary,linear-gradient(135deg,#434db5,#7d4dbf))",
+  secondary:    "var(--secondary,#94A3B8)",
+  accent:       "var(--accent,#32a0ef)",
+  info:         "var(--info,#32a0ef)",
+  success:      "var(--success,#22b196)",
+  warning:      "var(--warning,#f7c613)",
+  danger:       "var(--danger,#e7343a)",
+  dangerHover:  "var(--danger-hover,#d42832)",
+  divider:      "var(--divider,#2b303c)",
+  selected:     "var(--selected,#434db522)",
+  disabled:     "var(--disabled,#383e4c)",
+  disabledText: "var(--disabled-text,#6b7280)",
+
+  // ✅ Sidebar — permanently dark indigo-slate in both themes (matches
+  // reference: the sidebar never changes, only the content area does).
+  sidebar:      "var(--sidebar,#2b303c)",
+  sidebar2:     "var(--sidebar-2,#323945)",
+  sidebarBorder:"var(--sidebar-border,#3a4150)",
+  sidebarText:  "var(--sidebar-text,#a7adba)",
+  sidebarTextActive: "var(--sidebar-text-active,#ffffff)",
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-function Sidebar({ printers }: { printers: Printer[] }) {
+const SB_COLLAPSED = 76
+const SB_EXPANDED  = 220
+
+function Sidebar({ printers, pinned, setPinned }: {
+  printers: Printer[]; pinned: boolean; setPinned: (v: boolean) => void
+}) {
   const role     = getUserRole()
   const location = useLocation()
   const { theme, toggle } = useTheme()
+  const [hovering, setHovering] = useState(false)
+  const expanded = pinned || hovering
 
   const printing = printers.filter(p => p.status === "printing").length
   const idle     = printers.filter(p => p.status === "idle").length
@@ -98,53 +133,113 @@ function Sidebar({ printers }: { printers: Printer[] }) {
     ...(role === "admin" ? [{ path: "/manage/users", icon: "⊙", label: "Users" }] : []),
   ]
 
+  // ✅ Label wrapper: fades + collapses smoothly instead of just vanishing,
+  // so the expand/collapse reads as one continuous motion rather than text
+  // popping in/out.
+  const label = (text: string, extraStyle: React.CSSProperties = {}) => (
+    <span style={{
+      opacity: expanded ? 1 : 0,
+      maxWidth: expanded ? 160 : 0,
+      overflow: "hidden", whiteSpace: "nowrap",
+      transition: "opacity 180ms ease, max-width 260ms cubic-bezier(0.4,0,0.2,1)",
+      ...extraStyle,
+    }}>{text}</span>
+  )
+
   return (
-    <div style={{
-      width: 220, minHeight: "100vh", background: S.card,
-      borderRight: `1px solid ${S.border}`,
-      display: "flex", flexDirection: "column",
-      position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 40,
-      fontFamily: "'Inter', system-ui, sans-serif",
-    }}>
-      {/* Logo */}
-      <div style={{ padding: "20px 20px 16px", borderBottom: `1px solid ${S.border}` }}>
-        <div style={{ fontSize: 11, color: "#2563eb", fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>
-          Farm Control
+    <div
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      style={{
+        width: expanded ? SB_EXPANDED : SB_COLLAPSED,
+        minHeight: "100vh", background: S.sidebar,
+        borderRight: `1px solid ${S.sidebarBorder}`,
+        display: "flex", flexDirection: "column",
+        position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50,
+        fontFamily: "'Inter', system-ui, sans-serif",
+        overflow: "hidden",
+        transition: "width 260ms cubic-bezier(0.4,0,0.2,1), box-shadow 260ms ease",
+        boxShadow: (hovering && !pinned) ? "8px 0 32px rgba(0,0,0,0.35)" : "none",
+      }}
+    >
+      {/* Logo + pin toggle */}
+      <div style={{
+        padding: "20px 0 16px", borderBottom: `1px solid ${S.sidebarBorder}`,
+        display: "flex", alignItems: "center", gap: 10,
+        paddingLeft: expanded ? 20 : 23, paddingRight: expanded ? 16 : 0,
+        transition: "padding 260ms cubic-bezier(0.4,0,0.2,1)",
+      }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+          background: S.gradient,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 15, boxShadow: `0 4px 12px ${S.primary}55`,
+        }}>🖨️</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {label("Farm Control", { display: "block", fontSize: 12.5, color: "#fff", fontWeight: 800, letterSpacing: 0.5 })}
+          {label("3D Production Platform", { display: "block", fontSize: 9.5, color: S.sidebarText, marginTop: 1, letterSpacing: 0.3 })}
         </div>
-        <div style={{ fontSize: 10, color: S.muted, marginTop: 2, letterSpacing: 0.5 }}>
-          3D Production Platform
-        </div>
+        {/* ✅ Pin toggle — "dot" style icon button. Filled + glowing when
+            pinned (sidebar stays locked open), hollow when unpinned
+            (reverts to hover-to-expand rail). */}
+        {expanded && (
+          <button
+            onClick={() => setPinned(!pinned)}
+            title={pinned ? "Unpin sidebar" : "Pin sidebar open"}
+            style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              border: `1.5px solid ${pinned ? S.primary : S.sidebarBorder}`,
+              background: pinned ? S.gradient : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", padding: 0,
+              boxShadow: pinned ? `0 0 8px ${S.primary}88` : "none",
+              transition: "all 200ms ease",
+            }}
+          >
+            <span style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: pinned ? "#fff" : S.sidebarText,
+              transition: "background 200ms ease",
+            }} />
+          </button>
+        )}
       </div>
 
       {/* Farm Pulse — signature element */}
       {total > 0 && (
-        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${S.borderS}` }}>
-          <div style={{ fontSize: 9, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>
+        <div style={{
+          padding: "12px 20px", borderBottom: `1px solid ${S.sidebarBorder}`,
+          maxHeight: expanded ? 90 : 0, opacity: expanded ? 1 : 0,
+          overflow: "hidden",
+          transition: "max-height 260ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease, padding 260ms ease",
+          paddingTop: expanded ? 12 : 0, paddingBottom: expanded ? 12 : 0,
+        }}>
+          <div style={{ fontSize: 9, color: S.sidebarText, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8, whiteSpace: "nowrap" }}>
             Farm Pulse
           </div>
           <div style={{ display: "flex", borderRadius: 4, overflow: "hidden", height: 6, gap: 1 }}>
             {printing > 0 && (
               <div style={{
-                flex: printing, background: "#10b981",
-                boxShadow: "0 0 6px #10b98166",
+                flex: printing, background: S.success,
+                boxShadow: `0 0 6px ${S.success}66`,
               }} />
             )}
             {idle > 0 && (
-              <div style={{ flex: idle, background: "#2563eb" }} />
+              <div style={{ flex: idle, background: S.primary }} />
             )}
             {offline > 0 && (
-              <div style={{ flex: offline, background: S.dim }} />
+              <div style={{ flex: offline, background: S.sidebarText }} />
             )}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
             {[
-              { label: "printing", count: printing, color: "#10b981" },
-              { label: "idle",     count: idle,     color: "#2563eb" },
-              { label: "offline",  count: offline,  color: S.muted  },
-            ].map(({ label, count, color }) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              { label: "printing", count: printing, color: S.success },
+              { label: "idle",     count: idle,     color: S.primary },
+              { label: "offline",  count: offline,  color: S.sidebarText },
+            ].map(({ label: l, count, color }) => (
+              <div key={l} style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: S.muted }}>{count} {label}</span>
+                <span style={{ fontSize: 10, color: S.sidebarText }}>{count} {l}</span>
               </div>
             ))}
           </div>
@@ -152,31 +247,41 @@ function Sidebar({ printers }: { printers: Printer[] }) {
       )}
 
       {/* Nav links */}
-      <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto" }}>
-        {navItems.map(({ path, icon, label }) => {
+      <nav style={{ flex: 1, padding: "8px 10px", overflowY: "auto", overflowX: "hidden" }}>
+        {navItems.map(({ path, icon, label: navLabel }) => {
           const active = location.pathname === path
           return (
-            <Link key={path} to={path} style={{
+            <Link key={path} to={path} className="sb-nav-item" title={expanded ? undefined : navLabel} style={{
               display: "flex", alignItems: "center", gap: 10,
-              padding: "9px 10px", borderRadius: 7, marginBottom: 2,
-              textDecoration: "none", transition: "all 0.15s",
-              background: active ? "#2563eb18" : "none",
-              border: `1px solid ${active ? "#2563eb44" : "transparent"}`,
+              padding: expanded ? "9px 12px" : "9px 0", borderRadius: 10, marginBottom: 3,
+              justifyContent: expanded ? "flex-start" : "center",
+              textDecoration: "none",
+              transition: "background 200ms ease, transform 200ms ease, box-shadow 200ms ease, padding 260ms cubic-bezier(0.4,0,0.2,1), justify-content 260ms ease",
+              background: active ? S.gradient : "transparent",
+              boxShadow: active ? `0 4px 14px ${S.primary}4d` : "none",
+              transform: "translateX(0)",
             }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = S.hover }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "none" }}
+              onMouseEnter={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.background = S.sidebar2
+                  ;(e.currentTarget as HTMLElement).style.transform = expanded ? "translateX(3px)" : "translateX(0)"
+                }
+              }}
+              onMouseLeave={e => {
+                if (!active) {
+                  (e.currentTarget as HTMLElement).style.background = "transparent"
+                  ;(e.currentTarget as HTMLElement).style.transform = "translateX(0)"
+                }
+              }}
             >
-              <span style={{ fontSize: 14, color: active ? "#2563eb" : S.muted, width: 18, textAlign: "center" }}>
+              <span style={{ fontSize: 15, color: active ? "#fff" : S.sidebarText, width: 18, textAlign: "center", flexShrink: 0 }}>
                 {icon}
               </span>
-              <span style={{
-                fontSize: 13, fontWeight: active ? 600 : 400,
-                color: active ? S.text : S.muted,
-              }}>{label}</span>
-              {active && (
+              {label(navLabel, { fontSize: 13, fontWeight: active ? 600 : 500, color: active ? "#fff" : S.sidebarText })}
+              {active && expanded && (
                 <div style={{
-                  marginLeft: "auto", width: 4, height: 4, borderRadius: "50%",
-                  background: "#2563eb", boxShadow: "0 0 6px #2563eb",
+                  marginLeft: "auto", width: 5, height: 5, borderRadius: "50%",
+                  background: "#fff", boxShadow: "0 0 6px #fff", flexShrink: 0,
                 }} />
               )}
             </Link>
@@ -185,37 +290,52 @@ function Sidebar({ printers }: { printers: Printer[] }) {
       </nav>
 
       {/* Bottom: theme + user */}
-      <div style={{ padding: "12px 20px", borderTop: `1px solid ${S.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <span style={{ fontSize: 11, color: S.muted }}>Theme</span>
-          <button onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            toggle(rect.left + rect.width / 2, rect.top + rect.height / 2)
-          }} style={{
-            background: S.card2, border: `1px solid ${S.border}`,
-            color: S.muted, borderRadius: 6, padding: "3px 8px",
-            fontSize: 13, cursor: "pointer", lineHeight: 1,
-          }}>
+      <div style={{ padding: expanded ? "12px 20px" : "12px 10px", borderTop: `1px solid ${S.sidebarBorder}`, transition: "padding 260ms ease" }}>
+        <div style={{
+          display: "flex", justifyContent: expanded ? "space-between" : "center",
+          alignItems: "center", marginBottom: 10,
+        }}>
+          {label("Theme", { fontSize: 11, color: S.sidebarText })}
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              toggle(rect.left + rect.width / 2, rect.top + rect.height / 2)
+            }}
+            style={{
+              background: S.sidebar2, border: `1px solid ${S.sidebarBorder}`,
+              color: S.sidebarText, borderRadius: 8, padding: "4px 9px",
+              fontSize: 13, cursor: "pointer", lineHeight: 1, flexShrink: 0,
+              transition: "background 180ms ease, transform 180ms ease",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.08) rotate(15deg)" }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1) rotate(0deg)" }}
+          >
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
         </div>
-        <button onClick={() => { localStorage.removeItem("token"); window.location.href = "/login" }}
+        <button
+          onClick={() => { localStorage.removeItem("token"); window.location.href = "/login" }}
+          title={expanded ? undefined : "Sign Out"}
           style={{
-            width: "100%", padding: "7px 0", background: "none",
-            border: `1px solid ${S.border}`, borderRadius: 6,
-            color: S.muted, fontSize: 12, cursor: "pointer",
-            transition: "all 0.15s",
+            width: "100%", padding: "8px 0", background: "transparent",
+            border: `1px solid ${S.sidebarBorder}`, borderRadius: 10,
+            color: S.sidebarText, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
+            transition: "border-color 180ms ease, color 180ms ease, background 180ms ease",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
           }}
           onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = "#ef4444"
-            ;(e.currentTarget as HTMLElement).style.color = "#ef4444"
+            (e.currentTarget as HTMLElement).style.borderColor = S.danger
+            ;(e.currentTarget as HTMLElement).style.color = "#fff"
+            ;(e.currentTarget as HTMLElement).style.background = S.danger
           }}
           onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.borderColor = S.border
-            ;(e.currentTarget as HTMLElement).style.color = S.muted
+            (e.currentTarget as HTMLElement).style.borderColor = S.sidebarBorder
+            ;(e.currentTarget as HTMLElement).style.color = S.sidebarText
+            ;(e.currentTarget as HTMLElement).style.background = "transparent"
           }}
         >
-          Sign Out
+          <span style={{ fontSize: 13 }}>⎋</span>
+          {label("Sign Out")}
         </button>
       </div>
     </div>
@@ -384,7 +504,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
   const isActive   = isPrinting || isPaused
 
   const statusColor: Record<string, string> = {
-    printing: "#10b981", paused: "#f59e0b", idle: "#2563eb", offline: "#ef4444"
+    printing: S.success, paused: S.warning, idle: S.primary, offline: S.danger
   }
   const dotColor = statusColor[printer.status] ?? S.muted
 
@@ -437,7 +557,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
             <div style={{ background: S.card2, borderRadius: 3, height: 4, overflow: "hidden", position: "relative" }}>
               <div style={{
                 width: `${printer.progress}%`, height: "100%",
-                background: isPaused ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#10b981,#34d399)",
+                background: isPaused ? `linear-gradient(90deg,${S.warning},#fbbf24)` : `linear-gradient(90deg,${S.success},#34d399)`,
                 transition: "width 1s ease", borderRadius: 3,
               }} />
             </div>
@@ -464,7 +584,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
             {printer.filament_detected === false ? "🧵" : "⚠️"}
           </span>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: isPaused ? "#f59e0b" : "#ef4444", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: isPaused ? S.warning : S.danger, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
               {isPaused ? "Paused — needs attention" : "Printer alert"}
             </div>
             <div style={{ fontSize: 13, color: S.text, lineHeight: 1.4 }}>{printer.error_message}</div>
@@ -476,8 +596,8 @@ function PrinterTray({ printer, onClose, onRefresh }: {
           <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Temperatures</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
-              { label: "Extruder", temp: printer.extruder_temp, target: printer.extruder_target, color: "#f59e0b" },
-              { label: "Bed",      temp: printer.bed_temp,      target: printer.bed_target,      color: "#2563eb" },
+              { label: "Extruder", temp: printer.extruder_temp, target: printer.extruder_target, color: S.warning },
+              { label: "Bed",      temp: printer.bed_temp,      target: printer.bed_target,      color: S.primary },
             ].map(({ label, temp, target, color }) => (
               <div key={label} style={{
                 background: S.card2, borderRadius: 8, padding: "10px 12px",
@@ -506,7 +626,7 @@ function PrinterTray({ printer, onClose, onRefresh }: {
             }}>
               <span style={{ fontSize: 14 }}>⏱</span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#10b981" }}>{fmtETA(printer.eta_seconds)}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: S.success }}>{fmtETA(printer.eta_seconds)}</div>
                 <div style={{ fontSize: 10, color: S.muted }}>estimated remaining</div>
               </div>
             </div>
@@ -517,21 +637,21 @@ function PrinterTray({ printer, onClose, onRefresh }: {
       {/* Job Controls */}
       <div style={{ padding: "14px 20px", borderBottom: `1px solid ${S.border}` }}>
         <div style={{ fontSize: 10, color: S.muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Controls</div>
-        {printer.status === "offline" && <div style={{ fontSize: 12, color: "#ef4444" }}>Printer is offline</div>}
+        {printer.status === "offline" && <div style={{ fontSize: 12, color: S.danger }}>Printer is offline</div>}
         {isPaused && (
           <div style={{ display: "flex", gap: 8 }}>
-            <TBtn onClick={() => printerCmd("resume")} color="#10b981" disabled={loading}>▶ Resume</TBtn>
-            <TBtn onClick={() => printerCmd("cancel")} color="#ef4444" disabled={loading}>✕ Cancel</TBtn>
+            <TBtn onClick={() => printerCmd("resume")} color={S.success} disabled={loading}>▶ Resume</TBtn>
+            <TBtn onClick={() => printerCmd("cancel")} color={S.danger} disabled={loading}>✕ Cancel</TBtn>
           </div>
         )}
         {isPrinting && (
           <div style={{ display: "flex", gap: 8 }}>
-            <TBtn onClick={() => printerCmd("pause")}  color="#f59e0b" disabled={loading}>⏸ Pause</TBtn>
-            <TBtn onClick={() => printerCmd("cancel")} color="#ef4444" disabled={loading}>✕ Cancel</TBtn>
+            <TBtn onClick={() => printerCmd("pause")}  color={S.warning} disabled={loading}>⏸ Pause</TBtn>
+            <TBtn onClick={() => printerCmd("cancel")} color={S.danger} disabled={loading}>✕ Cancel</TBtn>
           </div>
         )}
         {isIdle && (
-          <TBtn onClick={startNextClick} color="#2563eb" disabled={loading || queue.length === 0}>
+          <TBtn onClick={startNextClick} color={S.primary} disabled={loading || queue.length === 0}>
             {queue.length === 0 ? "Queue empty" : "▶ Start Next Job"}
           </TBtn>
         )}
@@ -545,8 +665,8 @@ function PrinterTray({ printer, onClose, onRefresh }: {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             {([
-              { label: "Extruder °C", val: extruderTarget, set: setExtruderTarget, ph: "220", color: "#f59e0b" },
-              { label: "Bed °C",      val: bedTarget,      set: setBedTarget,      ph: "60",  color: "#2563eb" },
+              { label: "Extruder °C", val: extruderTarget, set: setExtruderTarget, ph: "220", color: S.warning },
+              { label: "Bed °C",      val: bedTarget,      set: setBedTarget,      ph: "60",  color: S.primary },
             ] as const).map(({ label, val, set, ph, color }) => (
               <div key={label}>
                 <div style={{ fontSize: 10, color: S.muted, marginBottom: 4 }}>{label}</div>
@@ -575,10 +695,10 @@ function PrinterTray({ printer, onClose, onRefresh }: {
               apiFetch(`/printers/${printer.id}/set_temp`, {
                 method: "POST", body: JSON.stringify({ extruder: 0, bed: 0 })
               }).then(onRefresh)
-            }} color="#64748b" disabled={tempLoading}>
+            }} color={S.secondary} disabled={tempLoading}>
               ❄ Cool Down
             </TBtn>
-            {tempMsg && <span style={{ fontSize: 12, color: "#10b981" }}>{tempMsg}</span>}
+            {tempMsg && <span style={{ fontSize: 12, color: S.success }}>{tempMsg}</span>}
           </div>
         </div>
       )}
@@ -590,10 +710,10 @@ function PrinterTray({ printer, onClose, onRefresh }: {
             Chamber Light
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <TBtn onClick={() => toggleLight(true)} color="#fbbf24" disabled={lightLoading || lightOn}>
+            <TBtn onClick={() => toggleLight(true)} color={S.warning} disabled={lightLoading || lightOn}>
               💡 On
             </TBtn>
-            <TBtn onClick={() => toggleLight(false)} color="#64748b" disabled={lightLoading || !lightOn}>
+            <TBtn onClick={() => toggleLight(false)} color={S.secondary} disabled={lightLoading || !lightOn}>
               🌑 Off
             </TBtn>
           </div>
@@ -623,13 +743,13 @@ function PrinterTray({ printer, onClose, onRefresh }: {
                 <div>
                   <div style={{ fontSize: 11, color: S.muted }}>Position {idx+1}</div>
                   <div style={{ fontSize: 13, color: S.text, fontWeight: 500 }}>Batch — {job.batch_name}</div>
-                  <div style={{ fontSize: 10, marginTop: 2, color: job.status === "waiting_confirmation" ? "#f59e0b" : S.muted }}>
+                  <div style={{ fontSize: 10, marginTop: 2, color: job.status === "waiting_confirmation" ? S.warning : S.muted }}>
                     {job.status}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  {isPrinting && idx === 0 && <TBtn onClick={() => skipJob(job.id)} color="#f59e0b" small>Skip</TBtn>}
-                  <TBtn onClick={() => cancelJob(job.id)} color="#ef4444" small>✕</TBtn>
+                  {isPrinting && idx === 0 && <TBtn onClick={() => skipJob(job.id)} color={S.warning} small>Skip</TBtn>}
+                  <TBtn onClick={() => cancelJob(job.id)} color={S.danger} small>✕</TBtn>
                 </div>
               </div>
             ))}
@@ -677,17 +797,26 @@ function TBtn({ onClick, color, disabled, children, small }: {
 
 function StatusPill({ status }: { status: string }) {
   const cfg: Record<string,{bg:string;color:string}> = {
-    printing: {bg:"#10b98118",color:"#10b981"},
-    paused:   {bg:"#f59e0b18",color:"#f59e0b"},
-    idle:     {bg:"#2563eb18",color:"#2563eb"},
-    offline:  {bg:"#ef444418",color:"#ef4444"},
+    printing: {bg:`${S.success}1f`,color:S.success},
+    paused:   {bg:`${S.warning}1f`,color:S.warning},
+    idle:     {bg:`${S.primary}1f`,color:S.primary},
+    offline:  {bg:`${S.danger}1f`, color:S.danger},
   }
-  const {bg,color} = cfg[status] ?? {bg:"#64748b18",color:"#64748b"}
+  const {bg,color} = cfg[status] ?? {bg:`${S.muted}1f`,color:S.muted}
   return (
     <span style={{
-      background:bg,color,border:`1px solid ${color}33`,
-      borderRadius:4,padding:"2px 8px",fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,
-    }}>{status}</span>
+      display:"inline-flex", alignItems:"center", gap:5,
+      background:bg, color, border:`1px solid ${color}30`,
+      borderRadius:999, padding:"3px 10px 3px 7px",
+      fontSize:10.5, fontWeight:600, letterSpacing:0.3, textTransform:"capitalize",
+    }}>
+      <span style={{
+        width:5, height:5, borderRadius:"50%", background:color, flexShrink:0,
+        boxShadow: status === "printing" ? `0 0 5px ${color}` : "none",
+        animation: status === "printing" ? "statusDotPulse 1.8s ease-in-out infinite" : "none",
+      }} />
+      {status}
+    </span>
   )
 }
 
@@ -698,8 +827,8 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
   onDelete: () => void; role: string | null
 }) {
   const [hov, setHov] = useState(false)
-  const accent: Record<string,string> = { printing:"#10b981",paused:"#f59e0b",idle:"#2563eb",offline:"#1a3a5c" }
-  const col = accent[printer.status] ?? "#1a3a5c"
+  const accent: Record<string,string> = { printing:S.success, paused:S.warning, idle:S.primary, offline:S.border }
+  const col = accent[printer.status] ?? S.border
   const isPrinting = printer.status === "printing"
   const isPaused   = printer.status === "paused"
 
@@ -709,13 +838,19 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: selected ? S.card2 : hov ? S.hover : S.card,
-        border: `1px solid ${printer.error_message ? "#ef444466" : selected ? col : hov ? S.border : S.borderS}`,
-        borderRadius: 10, padding: "14px 16px",
-        cursor: "pointer", transition: "all 0.15s",
+        background: selected ? S.card2 : S.card,
+        border: `1px solid ${printer.error_message ? `${S.danger}66` : selected ? col : S.border}`,
+        borderRadius: 12, padding: "18px 20px",
+        cursor: "pointer",
+        transition: "border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, background-color 180ms ease",
+        transform: hov && !selected ? "translateY(-2px)" : "translateY(0)",
         boxShadow: printer.error_message
-          ? "0 0 0 1px #ef444433, 0 0 16px #ef444422"
-          : selected ? `0 0 0 1px ${col}33, 0 4px 20px rgba(0,0,0,0.3)` : "none",
+          ? `0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px ${S.danger}22`
+          : selected
+            ? `0 8px 24px rgba(0,0,0,0.16), 0 0 0 1px ${col}33`
+            : hov
+              ? "0 6px 16px rgba(0,0,0,0.12)"
+              : "0 1px 2px rgba(0,0,0,0.06)",
         position: "relative", overflow: "hidden",
       }}
     >
@@ -723,13 +858,13 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
       {isPrinting && (
         <div style={{
           position:"absolute",top:0,left:0,right:0,height:2,
-          background:"linear-gradient(90deg,transparent,#10b981,transparent)",
+          background:`linear-gradient(90deg,transparent,${S.success},transparent)`,
           animation:"shimmer 2s infinite",
         }} />
       )}
 
-      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8 }}>
-        <div style={{ fontSize:13,fontWeight:600,color:S.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingRight:8 }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12 }}>
+        <div style={{ fontSize:14,fontWeight:600,color:S.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingRight:8,letterSpacing:-0.1 }}>
           {printer.name}
         </div>
         <StatusPill status={printer.status} />
@@ -738,15 +873,15 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
       {/* File / alert */}
       {printer.error_message ? (
         <div style={{
-          fontSize:10, color:"#ef4444", minHeight:13, marginBottom:8,
+          fontSize:11, color:S.danger, minHeight:14, marginBottom:12,
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-          display:"flex", alignItems:"center", gap:4, fontWeight:600,
+          display:"flex", alignItems:"center", gap:5, fontWeight:600,
         }}>
           <span>{printer.filament_detected === false ? "🧵" : "⚠️"}</span>
           {printer.error_message}
         </div>
       ) : (
-        <div style={{ fontSize:10,color:S.muted,minHeight:13,marginBottom:8,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>
+        <div style={{ fontSize:11,color:S.muted,minHeight:14,marginBottom:12,overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
           {(isPrinting || isPaused) && printer.current_file ? printer.current_file : printer.status === "offline" ? "" : "Ready"}
         </div>
       )}
@@ -754,19 +889,19 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
       {/* Progress */}
       {(isPrinting || isPaused) && (
         <>
-          <div style={{ background:S.card2,borderRadius:2,height:3,overflow:"hidden",marginBottom:4 }}>
+          <div style={{ background:S.card2,borderRadius:3,height:5,overflow:"hidden",marginBottom:8 }}>
             <div style={{
-              width:`${printer.progress}%`,height:"100%",
-              background: isPaused ? "linear-gradient(90deg,#f59e0b,#fbbf24)" : "linear-gradient(90deg,#10b981,#34d399)",
+              width:`${printer.progress}%`,height:"100%",borderRadius:3,
+              background: isPaused ? `linear-gradient(90deg,${S.warning},#fbbf24)` : `linear-gradient(90deg,${S.success},#34d399)`,
               transition:"width 1s ease",
             }} />
           </div>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-            <span style={{ fontSize:11,color:isPaused?"#f59e0b":"#10b981",fontWeight:600,fontVariantNumeric:"tabular-nums" }}>
+            <span style={{ fontSize:12,color:isPaused?S.warning:S.success,fontWeight:600,fontVariantNumeric:"tabular-nums" }}>
               {printer.progress.toFixed(1)}%
             </span>
             {printer.eta_seconds && printer.eta_seconds > 0 && (
-              <span style={{ fontSize:10,color:S.muted }}>{fmtETA(printer.eta_seconds)}</span>
+              <span style={{ fontSize:11,color:S.muted }}>{fmtETA(printer.eta_seconds)}</span>
             )}
           </div>
         </>
@@ -774,11 +909,11 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
 
       {/* Inline temps when printing */}
       {isPrinting && printer.extruder_temp && (
-        <div style={{ display:"flex",gap:10,marginTop:8,paddingTop:8,borderTop:`1px solid ${S.borderS}` }}>
-          <span style={{ fontSize:10,color:"#f59e0b",fontVariantNumeric:"tabular-nums" }}>
+        <div style={{ display:"flex",gap:14,marginTop:12,paddingTop:12,borderTop:`1px solid ${S.divider}` }}>
+          <span style={{ fontSize:11,color:S.warning,fontVariantNumeric:"tabular-nums" }}>
             🔥 {printer.extruder_temp.toFixed(0)}°
           </span>
-          <span style={{ fontSize:10,color:"#2563eb",fontVariantNumeric:"tabular-nums" }}>
+          <span style={{ fontSize:11,color:S.primary,fontVariantNumeric:"tabular-nums" }}>
             ☐ {printer.bed_temp?.toFixed(0) ?? "—"}°
           </span>
         </div>
@@ -789,11 +924,12 @@ function PrinterCard({ printer, selected, onClick, onDelete, role }: {
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           style={{
-            position:"absolute",bottom:8,right:8,background:"none",border:"none",
-            color:S.dim,fontSize:12,cursor:"pointer",padding:2,lineHeight:1,
-            transition:"color 0.15s",
+            position:"absolute",bottom:10,right:10,background:"none",border:"none",
+            color:S.dim,fontSize:13,cursor:"pointer",padding:3,lineHeight:1,
+            borderRadius:6,
+            transition:"color 150ms ease, background-color 150ms ease",
           }}
-          onMouseEnter={e => (e.currentTarget.style.color="#ef4444")}
+          onMouseEnter={e => (e.currentTarget.style.color=S.danger)}
           onMouseLeave={e => (e.currentTarget.style.color=S.dim)}
           title="Delete printer"
         >🗑</button>
@@ -822,6 +958,7 @@ function App() {
     <>
       <style>{`
         @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+        @keyframes statusDotPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; } 
         ::-webkit-scrollbar-track { background: transparent; }
@@ -871,10 +1008,16 @@ function App() {
 function AppShell({ children, printers }: {
   children: React.ReactNode; printers: Printer[]
 }) {
+  const [pinned, setPinned] = useState(() => localStorage.getItem("sidebarPinned") === "1")
+
+  useEffect(() => {
+    localStorage.setItem("sidebarPinned", pinned ? "1" : "0")
+  }, [pinned])
+
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:S.bg, fontFamily:"'Inter',system-ui,sans-serif" }}>
-      <Sidebar printers={printers} />
-      <div style={{ marginLeft:220, flex:1, minWidth:0 }}>
+      <Sidebar printers={printers} pinned={pinned} setPinned={setPinned} />
+      <div style={{ marginLeft: pinned ? 220 : 76, flex:1, minWidth:0, transition:"margin-left 260ms cubic-bezier(0.4,0,0.2,1)" }}>
         {children}
       </div>
     </div>
@@ -948,51 +1091,60 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
     <div style={{ minHeight:"100vh", background:S.bg, color:S.text }}>
       {/* Top bar */}
       <div style={{
-        height:52, borderBottom:`1px solid ${S.border}`,
-        display:"flex",alignItems:"center",padding:"0 28px",
+        height:64, borderBottom:`1px solid ${S.divider}`,
+        display:"flex",alignItems:"center",padding:"0 32px",
         justifyContent:"space-between", background:S.card,
         position:"sticky",top:0,zIndex:30,
+        boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
       }}>
         <div>
-          <span style={{ fontSize:15,fontWeight:700,color:S.text }}>Production Overview</span>
-          <span style={{ fontSize:12,color:S.muted,marginLeft:12 }}>
+          <div style={{ fontSize:17,fontWeight:700,color:S.text,letterSpacing:-0.2 }}>Production Overview</div>
+          <div style={{ fontSize:12.5,color:S.muted,marginTop:1 }}>
             {printing > 0 ? `${printing} printer${printing>1?"s":""} active` : "All printers idle"}
-          </span>
+          </div>
         </div>
         {role === "admin" && (
-          <button onClick={()=>setShowAddModal(true)} style={{
-            background:"#2563eb",border:"none",color:"#fff",
-            borderRadius:7,padding:"7px 16px",fontSize:13,fontWeight:600,cursor:"pointer",
-            display:"flex",alignItems:"center",gap:6,
-          }}>
-            <span style={{fontSize:16,lineHeight:1}}>+</span> Add Printer
-          </button>
+          <Button variant="primary" onClick={()=>setShowAddModal(true)} leadingIcon={<span style={{fontSize:16,lineHeight:1}}>+</span>}>
+            Add Printer
+          </Button>
         )}
       </div>
 
-      <div style={{ padding:"24px 28px" }}>
-        {/* KPI row */}
+      <div style={{ padding:"32px" }}>
+        {/* KPI row — icon-chip style, matching reference */}
         <div style={{
           display:"grid",
           gridTemplateColumns:"repeat(6,1fr)",
-          gap:10, marginBottom:24,
+          gap:16, marginBottom:32,
         }}>
           {[
-            {label:"Fleet",         value:total,    accent:"#4a6080",  sub:"printers"},
-            {label:"Printing",      value:printing, accent:"#10b981",  sub:"active now"},
-            {label:"Paused",        value:paused,   accent:"#f59e0b",  sub:"on hold"},
-            {label:"Idle",          value:idle,     accent:"#2563eb",  sub:"ready"},
-            {label:"Offline",       value:offline,  accent:"#ef4444",  sub:"unreachable"},
-            {label:"Success Rate",  value:analytics?`${analytics.success_rate}%`:"—", accent:"#8b5cf6", sub:"all time"},
-          ].map(({label,value,accent,sub})=>(
-            <div key={label} style={{
-              background:S.card, borderRadius:10, padding:"14px 16px",
+            {label:"Fleet",         value:total,    accent:S.dim,      icon:"🖥️", sub:"printers"},
+            {label:"Printing",      value:printing, accent:S.success,  icon:"▶",  sub:"active now"},
+            {label:"Paused",        value:paused,   accent:S.warning,  icon:"⏸",  sub:"on hold"},
+            {label:"Idle",          value:idle,     accent:S.primary,  icon:"◇",  sub:"ready"},
+            {label:"Offline",       value:offline,  accent:S.danger,   icon:"⏻",  sub:"unreachable"},
+            {label:"Success Rate",  value:analytics?`${analytics.success_rate}%`:"—", accent:S.info, icon:"✓", sub:"all time"},
+          ].map(({label,value,accent,icon,sub})=>(
+            <div key={label} className="kpi-card" style={{
+              background:S.card, borderRadius:12, padding:"18px 20px",
               border:`1px solid ${S.border}`,
-              borderTop:`2px solid ${accent}`,
-            }}>
-              <div style={{fontSize:10,color:S.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}}>{label}</div>
-              <div style={{fontSize:24,fontWeight:700,color:accent,fontVariantNumeric:"tabular-nums"}}>{value}</div>
-              <div style={{fontSize:10,color:S.dim,marginTop:3}}>{sub}</div>
+              boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
+              transition:"transform 200ms ease, box-shadow 200ms ease",
+            }}
+              onMouseEnter={e=>{ (e.currentTarget as HTMLElement).style.transform="translateY(-3px)"; (e.currentTarget as HTMLElement).style.boxShadow=`0 10px 24px ${accent}22` }}
+              onMouseLeave={e=>{ (e.currentTarget as HTMLElement).style.transform="translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow="0 1px 3px rgba(0,0,0,0.06)" }}
+            >
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                <div style={{fontSize:11,color:S.muted,textTransform:"uppercase",letterSpacing:1.2,fontWeight:600}}>{label}</div>
+                <div style={{
+                  width:34,height:34,borderRadius:10,flexShrink:0,
+                  background:`${accent}1c`, border:`1px solid ${accent}33`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:14,color:accent,
+                }}>{icon}</div>
+              </div>
+              <div style={{fontSize:24,fontWeight:700,color:S.text,fontVariantNumeric:"tabular-nums",letterSpacing:-0.5}}>{value}</div>
+              <div style={{fontSize:11,color:S.dim,marginTop:4}}>{sub}</div>
             </div>
           ))}
         </div>
@@ -1001,27 +1153,28 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
         {analytics && (
           <div style={{
             display:"grid",gridTemplateColumns:"repeat(3,1fr)",
-            gap:10,marginBottom:24,
+            gap:16,marginBottom:32,
           }}>
             {[
-              {label:"Today's Prints",  value:analytics.today_prints,  unit:"jobs",    color:"#10b981"},
-              {label:"This Week",       value:analytics.week_prints,   unit:"jobs",    color:"#2563eb"},
+              {label:"Today's Prints",  value:analytics.today_prints,  unit:"jobs",    color:S.success},
+              {label:"This Week",       value:analytics.week_prints,   unit:"jobs",    color:S.primary},
               {label:"Avg Print Time",  value:analytics.avg_print_time_minutes?`${analytics.avg_print_time_minutes}m`:"—", unit:"minutes", color:"#8b5cf6"},
             ].map(({label,value,color})=>(
               <div key={label} style={{
-                background:S.card,borderRadius:10,padding:"14px 20px",
+                background:S.card,borderRadius:12,padding:"18px 20px",
                 border:`1px solid ${S.border}`,
+                boxShadow:"0 1px 3px rgba(0,0,0,0.06)",
                 display:"flex",alignItems:"center",gap:16,
               }}>
                 <div style={{
-                  width:36,height:36,borderRadius:8,
-                  background:`${color}18`,border:`1px solid ${color}33`,
+                  width:40,height:40,borderRadius:10,
+                  background:`${color}15`,border:`1px solid ${color}30`,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:16,flexShrink:0,
+                  fontSize:17,flexShrink:0,
                 }}>📊</div>
                 <div>
-                  <div style={{fontSize:10,color:S.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4}}>{label}</div>
-                  <div style={{fontSize:20,fontWeight:700,color,fontVariantNumeric:"tabular-nums"}}>{value}</div>
+                  <div style={{fontSize:11,color:S.muted,textTransform:"uppercase",letterSpacing:1.2,marginBottom:5,fontWeight:600}}>{label}</div>
+                  <div style={{fontSize:21,fontWeight:700,color:S.text,fontVariantNumeric:"tabular-nums",letterSpacing:-0.3}}>{value}</div>
                 </div>
               </div>
             ))}
@@ -1029,14 +1182,14 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
         )}
 
         {/* ✅ Status filter pills */}
-        <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
-          <span style={{ fontSize:11, color:S.muted, textTransform:"uppercase", letterSpacing:1.5, marginRight:4 }}>Filter</span>
+        <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
+          <span style={{ fontSize:11, color:S.muted, textTransform:"uppercase", letterSpacing:1.2, marginRight:4, fontWeight:600 }}>Filter</span>
           {[
             { label:"All",      value:"all",      count:total,    color:S.muted   },
-            { label:"Printing", value:"printing",  count:printing, color:"#10b981" },
-            { label:"Paused",   value:"paused",   count:paused,   color:"#f59e0b" },
-            { label:"Idle",     value:"idle",     count:idle,     color:"#2563eb" },
-            { label:"Offline",  value:"offline",  count:offline,  color:"#ef4444" },
+            { label:"Printing", value:"printing",  count:printing, color:S.success },
+            { label:"Paused",   value:"paused",   count:paused,   color:S.warning },
+            { label:"Idle",     value:"idle",     count:idle,     color:S.primary },
+            { label:"Offline",  value:"offline",  count:offline,  color:S.danger  },
           ].map(({ label, value, count, color }) => {
             const active = statusFilter === value
             return (
@@ -1073,7 +1226,7 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
         <div style={{
           display:"grid",
           gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",
-          gap:12,
+          gap:16,
           marginRight: selectedPrinter ? 376 : 0,
           transition:"margin-right 0.2s ease",
         }}>
@@ -1093,11 +1246,9 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
               <div style={{fontSize:15,color:S.muted}}>
                 No {statusFilter} printers
               </div>
-              <button onClick={()=>setStatusFilter("all")} style={{
-                marginTop:12, background:"none", border:`1px solid ${S.border}`,
-                borderRadius:6, padding:"5px 16px", fontSize:12,
-                color:S.muted, cursor:"pointer",
-              }}>Clear filter</button>
+              <Button variant="secondary" size="sm" style={{ marginTop:12 }} onClick={()=>setStatusFilter("all")}>
+                Clear filter
+              </Button>
             </div>
           )}
           {printers.length === 0 && (
@@ -1105,10 +1256,9 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
               <div style={{fontSize:40,marginBottom:16}}>🖨️</div>
               <div style={{fontSize:16,marginBottom:6,color:S.muted}}>No printers yet</div>
               {role==="admin" && (
-                <button onClick={()=>setShowAddModal(true)} style={{
-                  background:"#2563eb",border:"none",color:"#fff",
-                  borderRadius:7,padding:"8px 20px",fontSize:14,fontWeight:600,cursor:"pointer",marginTop:8,
-                }}>+ Add first printer</button>
+                <Button variant="primary" style={{ marginTop:8 }} onClick={()=>setShowAddModal(true)}>
+                  + Add first printer
+                </Button>
               )}
             </div>
           )}

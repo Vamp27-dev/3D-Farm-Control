@@ -52,11 +52,11 @@ interface Folder {
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  completed: { bg: "#10b98118", color: "#10b981" },
-  printing:  { bg: "#3b82f618", color: "#3b82f6" },
-  queued:    { bg: "#f59e0b18", color: "#f59e0b" },
-  empty:     { bg: "#64748b18", color: "#64748b" },
-  unknown:   { bg: "#64748b18", color: "#64748b" },
+  completed: { bg: "#10b98118", color: "var(--success)" },
+  printing:  { bg: "#3b82f618", color: "var(--primary)" },
+  queued:    { bg: "#f59e0b18", color: "var(--warning)" },
+  empty:     { bg: "#64748b18", color: "var(--secondary)" },
+  unknown:   { bg: "#64748b18", color: "var(--secondary)" },
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -72,17 +72,17 @@ function StatusPill({ status }: { status: string }) {
 }
 
 const JOB_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  printing:             { bg: "#10b98118", color: "#10b981" },
-  completed:            { bg: "#10b98118", color: "#10b981" },
-  queued:               { bg: "#f59e0b18", color: "#f59e0b" },
-  waiting_confirmation: { bg: "#f59e0b18", color: "#f59e0b" },
-  cancelled:            { bg: "#ef444418", color: "#ef4444" },
-  failed:               { bg: "#ef444418", color: "#ef4444" },
+  printing:             { bg: "#10b98118", color: "var(--success)" },
+  completed:            { bg: "#10b98118", color: "var(--success)" },
+  queued:               { bg: "#f59e0b18", color: "var(--warning)" },
+  waiting_confirmation: { bg: "#f59e0b18", color: "var(--warning)" },
+  cancelled:            { bg: "#ef444418", color: "var(--danger)" },
+  failed:               { bg: "#ef444418", color: "var(--danger)" },
   skipped:              { bg: "#8b5cf618", color: "#8b5cf6" },
 }
 
 function JobStatusPill({ status }: { status: string }) {
-  const { bg, color } = JOB_STATUS_COLOR[status] ?? { bg: "#64748b18", color: "#64748b" }
+  const { bg, color } = JOB_STATUS_COLOR[status] ?? { bg: "#64748b18", color: "var(--secondary)" }
   return (
     <span style={{
       background: bg, color,
@@ -216,7 +216,7 @@ function CreateBatchModal({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60,
     }}>
       <div style={{
-        background: "var(--card)", border: "1px solid #1e3a5f",
+        background: "var(--card)", border: "1px solid var(--border)",
         borderRadius: 14, width: 520, maxHeight: "88vh",
         display: "flex", flexDirection: "column",
         boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
@@ -252,8 +252,8 @@ function CreateBatchModal({
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{
                       width: 24, height: 24, borderRadius: "50%",
-                      background: done ? "#10b981" : active ? "#3b82f6" : "#1e293b",
-                      border: `2px solid ${done ? "#10b981" : active ? "#3b82f6" : "var(--text-dim)"}`,
+                      background: done ? "var(--success)" : active ? "var(--primary)" : "var(--border)",
+                      border: `2px solid ${done ? "var(--success)" : active ? "var(--primary)" : "var(--text-dim)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 11, fontWeight: 700,
                       color: done || active ? "#fff" : "var(--text-muted)",
@@ -261,12 +261,12 @@ function CreateBatchModal({
                     }}>
                       {done ? "✓" : n}
                     </div>
-                    <span style={{ fontSize: 12, color: active ? "var(--text)" : done ? "#10b981" : "var(--text-muted)", fontWeight: active ? 600 : 400 }}>
+                    <span style={{ fontSize: 12, color: active ? "var(--text)" : done ? "var(--success)" : "var(--text-muted)", fontWeight: active ? 600 : 400 }}>
                       {label}
                     </span>
                   </div>
                   {i === 0 && (
-                    <div style={{ flex: 1, height: 1, background: step > 1 ? "#10b981" : "#1e293b", margin: "0 12px" }} />
+                    <div style={{ flex: 1, height: 1, background: step > 1 ? "var(--success)" : "var(--border)", margin: "0 12px" }} />
                   )}
                 </div>
               )
@@ -292,7 +292,7 @@ function CreateBatchModal({
                   style={{
                     width: "100%", padding: "9px 12px",
                     background: "var(--card2)", border: "1px solid var(--border)",
-                    borderRadius: 6, color: "var(--text)", fontSize: 14,
+                    borderRadius: 10, color: "var(--text)", fontSize: 14,
                     boxSizing: "border-box", outline: "none",
                   }}
                 />
@@ -305,9 +305,9 @@ function CreateBatchModal({
                     <button key={f.id} onClick={() => setSelectedFolder(f.id)} style={{
                       padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500,
                       cursor: "pointer", transition: "all 0.15s",
-                      background: selectedFolder === f.id ? "#3b82f6" : "var(--card2)",
-                      border: `1px solid ${selectedFolder === f.id ? "#3b82f6" : "#1e293b"}`,
-                      color: selectedFolder === f.id ? "#fff" : "#64748b",
+                      background: selectedFolder === f.id ? "var(--primary)" : "var(--card2)",
+                      border: `1px solid ${selectedFolder === f.id ? "var(--primary)" : "var(--border)"}`,
+                      color: selectedFolder === f.id ? "#fff" : "var(--secondary)",
                     }}>{f.name}</button>
                   ))}
                 </div>
@@ -325,16 +325,16 @@ function CreateBatchModal({
                     return (
                       <div key={f.id} onClick={() => setSelectedFile(f.id)} style={{
                         display: "flex", alignItems: "center", gap: 14,
-                        padding: "12px 16px", borderRadius: 8,
+                        padding: "12px 16px", borderRadius: 10,
                         background: sel ? "#10b98112" : "var(--card2)",
-                        border: `1px solid ${sel ? "#10b981" : "#1e293b"}`,
+                        border: `1px solid ${sel ? "var(--success)" : "var(--border)"}`,
                         cursor: "pointer", transition: "all 0.15s",
                       }}>
                         {/* Radio dot */}
                         <div style={{
                           width: 16, height: 16, borderRadius: "50%", flexShrink: 0,
-                          border: `2px solid ${sel ? "#10b981" : "var(--text-dim)"}`,
-                          background: sel ? "#10b981" : "none",
+                          border: `2px solid ${sel ? "var(--success)" : "var(--text-dim)"}`,
+                          background: sel ? "var(--success)" : "none",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>
                           {sel && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
@@ -342,7 +342,7 @@ function CreateBatchModal({
                         {/* File icon + name */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
-                            fontSize: 13, color: "#e2e8f0", fontWeight: 500,
+                            fontSize: 13, color: "var(--text)", fontWeight: 500,
                             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                           }}>{f.original_name}</div>
                           <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
@@ -369,7 +369,7 @@ function CreateBatchModal({
                   {["all", ...availableTypes].map(type => {
                     const active = printerTypeFilter === type
                     const label = type === "all" ? "All Types" : type === "centauri" ? "Centauri Carbon" : "Neptune (Klipper)"
-                    const color = type === "centauri" ? "#f59e0b" : type === "klipper" ? "#2563eb" : "var(--text-muted)"
+                    const color = type === "centauri" ? "var(--warning)" : type === "klipper" ? "var(--primary)" : "var(--text-muted)"
                     return (
                       <button key={type} onClick={() => {
                         setPrinterTypeFilter(type)
@@ -385,7 +385,7 @@ function CreateBatchModal({
                   })}
                 </div>
                 {printerTypeFilter !== "all" && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 11, color: "var(--warning)", marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
                     <span>⚠️</span>
                     Make sure your gcode file was sliced for <strong>{printerTypeFilter === "centauri" ? "Centauri Carbon" : "Neptune"}</strong> printers
                   </div>
@@ -399,7 +399,7 @@ function CreateBatchModal({
                 </div>
                 {idlePrinters.length > 0 && (
                   <button onClick={selectAllIdle} style={{
-                    fontSize: 12, color: "#3b82f6", background: "none",
+                    fontSize: 12, color: "var(--primary)", background: "none",
                     border: "none", cursor: "pointer", padding: 0, fontWeight: 500,
                   }}>
                     Select all idle
@@ -410,12 +410,12 @@ function CreateBatchModal({
               {/* Selected file reminder */}
               <div style={{
                 background: "var(--card2)", border: "1px solid var(--border)",
-                borderRadius: 8, padding: "10px 14px", marginBottom: 16,
+                borderRadius: 10, padding: "10px 14px", marginBottom: 16,
                 display: "flex", alignItems: "center", gap: 10,
               }}>
                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>FILE</span>
                 <span style={{
-                  fontSize: 12, color: "#93c5fd", fontWeight: 500,
+                  fontSize: 12, color: "var(--primary)", fontWeight: 500,
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}>{selectedFileName}</span>
               </div>
@@ -429,20 +429,20 @@ function CreateBatchModal({
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {idlePrinters.map(p => {
                       const sel = selectedPrinters.includes(p.id)
-                      const typeColor = p.type === "centauri" ? "#f59e0b" : "#2563eb"
+                      const typeColor = p.type === "centauri" ? "var(--warning)" : "var(--primary)"
                       const typeLabel = p.type === "centauri" ? "Centauri" : "Neptune"
                       return (
                         <div key={p.id} onClick={() => togglePrinter(p.id)} style={{
                           display: "flex", alignItems: "center", gap: 12,
-                          padding: "10px 14px", borderRadius: 8,
+                          padding: "10px 14px", borderRadius: 10,
                           background: sel ? "#10b98112" : "var(--card2)",
-                          border: `1px solid ${sel ? "#10b981" : "var(--border)"}`,
+                          border: `1px solid ${sel ? "var(--success)" : "var(--border)"}`,
                           cursor: "pointer", transition: "all 0.15s",
                         }}>
                           <div style={{
                             width: 16, height: 16, borderRadius: 4, flexShrink: 0,
-                            border: `2px solid ${sel ? "#10b981" : "var(--text-dim)"}`,
-                            background: sel ? "#10b981" : "none",
+                            border: `2px solid ${sel ? "var(--success)" : "var(--text-dim)"}`,
+                            background: sel ? "var(--success)" : "none",
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
                             {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
@@ -457,7 +457,7 @@ function CreateBatchModal({
                             background: `${typeColor}18`, color: typeColor,
                             border: `1px solid ${typeColor}44`,
                           }}>{typeLabel}</span>
-                          <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Idle</span>
+                          <span style={{ fontSize: 11, color: "var(--success)", fontWeight: 600 }}>Idle</span>
                         </div>
                       )
                     })}
@@ -473,12 +473,12 @@ function CreateBatchModal({
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {nonIdlePrinters.map(p => {
-                      const typeColor = p.type === "centauri" ? "#f59e0b" : "#2563eb"
+                      const typeColor = p.type === "centauri" ? "var(--warning)" : "var(--primary)"
                       const typeLabel = p.type === "centauri" ? "Centauri" : "Neptune"
                       return (
                         <div key={p.id} style={{
                           display: "flex", alignItems: "center", gap: 12,
-                          padding: "10px 14px", borderRadius: 8,
+                          padding: "10px 14px", borderRadius: 10,
                           background: "var(--border-subtle)", border: "1px solid var(--border-subtle)",
                           opacity: 0.4,
                         }}>
@@ -514,17 +514,17 @@ function CreateBatchModal({
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "20px 28px", borderTop: "1px solid #0f1f35" }}>
+        <div style={{ padding: "20px 28px", borderTop: "1px solid var(--border-subtle)" }}>
 
           {/* Summary when on step 2 */}
           {step === 2 && selectedPrinters.length > 0 && (
             <div style={{
-              background: "var(--card2)", border: "1px solid #1e293b",
-              borderRadius: 8, padding: "10px 14px", marginBottom: 14,
-              fontSize: 13, color: "#64748b",
+              background: "var(--card2)", border: "1px solid var(--border)",
+              borderRadius: 10, padding: "10px 14px", marginBottom: 14,
+              fontSize: 13, color: "var(--secondary)",
             }}>
               Will queue{" "}
-              <strong style={{ color: "#10b981" }}>{selectedPrinters.length} printer{selectedPrinters.length !== 1 ? "s" : ""}</strong>
+              <strong style={{ color: "var(--success)" }}>{selectedPrinters.length} printer{selectedPrinters.length !== 1 ? "s" : ""}</strong>
               {" "}— jobs start automatically when each printer finishes its current task
             </div>
           )}
@@ -533,15 +533,15 @@ function CreateBatchModal({
             {step === 2 && (
               <button onClick={() => setStep(1)} style={{
                 padding: "9px 18px", background: "none",
-                border: "1px solid #1e293b", borderRadius: 6,
-                color: "#64748b", cursor: "pointer", fontSize: 14,
+                border: "1px solid var(--border)", borderRadius: 10,
+                color: "var(--secondary)", cursor: "pointer", fontSize: 14,
               }}>← Back</button>
             )}
             <button onClick={onClose} style={{
               flex: step === 1 ? 1 : undefined,
               padding: "9px 18px", background: "none",
-              border: "1px solid #1e293b", borderRadius: 6,
-              color: "#64748b", cursor: "pointer", fontSize: 14,
+              border: "1px solid var(--border)", borderRadius: 10,
+              color: "var(--secondary)", cursor: "pointer", fontSize: 14,
             }}>Cancel</button>
 
             {step === 1 && (
@@ -550,8 +550,8 @@ function CreateBatchModal({
                 disabled={!canProceed}
                 style={{
                   flex: 2, padding: "9px 0",
-                  background: canProceed ? "#3b82f6" : "var(--card2)",
-                  border: "none", borderRadius: 6,
+                  background: canProceed ? "var(--primary)" : "var(--card2)",
+                  border: "none", borderRadius: 10,
                   color: canProceed ? "#fff" : "var(--text-dim)",
                   cursor: canProceed ? "pointer" : "not-allowed",
                   fontWeight: 600, fontSize: 14,
@@ -566,8 +566,8 @@ function CreateBatchModal({
                 disabled={!canCreate || loading}
                 style={{
                   flex: 2, padding: "9px 0",
-                  background: canCreate && !loading ? "#10b981" : "var(--card2)",
-                  border: "none", borderRadius: 6,
+                  background: canCreate && !loading ? "var(--success)" : "var(--card2)",
+                  border: "none", borderRadius: 10,
                   color: canCreate && !loading ? "#fff" : "var(--text-dim)",
                   cursor: canCreate && !loading ? "pointer" : "not-allowed",
                   fontWeight: 600, fontSize: 14,
@@ -733,8 +733,8 @@ function Batches() {
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>Queue files to multiple printers</span>
         </div>
         <button onClick={() => setShowCreate(true)} style={{
-          background: "#10b981", border: "none", color: "#fff",
-          borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          background: "var(--success)", border: "none", color: "#fff",
+          borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
         }}>+ Create Batch</button>
       </div>
 
@@ -742,10 +742,10 @@ function Batches() {
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Batches", value: batches.length, accent: "#4a6080" },
-            { label: "Printing",      value: printing,       accent: "#10b981" },
-            { label: "Queued",        value: queued,         accent: "#f59e0b" },
-            { label: "Completed",     value: completed,      accent: "#2563eb" },
+            { label: "Total Batches", value: batches.length, accent: "var(--text-dim)" },
+            { label: "Printing",      value: printing,       accent: "var(--success)" },
+            { label: "Queued",        value: queued,         accent: "var(--warning)" },
+            { label: "Completed",     value: completed,      accent: "var(--primary)" },
           ].map(({ label, value, accent }) => (
             <div key={label} style={{
               background: "var(--card)", borderRadius: 10, padding: "14px 18px",
@@ -764,8 +764,8 @@ function Batches() {
             <div style={{ fontSize: 18, marginBottom: 8, color: "var(--text-muted)" }}>No batches yet</div>
             <div style={{ fontSize: 14, marginBottom: 24 }}>Create a batch to queue a file across multiple printers</div>
             <button onClick={() => setShowCreate(true)} style={{
-              background: "#10b981", border: "none", color: "#fff",
-              borderRadius: 8, padding: "9px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+              background: "var(--success)", border: "none", color: "#fff",
+              borderRadius: 10, padding: "9px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
             }}>+ Create your first batch</button>
           </div>
         ) : (
@@ -789,7 +789,7 @@ function Batches() {
                     }}>▶</div>
                     {/* ✅ Serial number badge instead of raw DB id */}
                     <div style={{
-                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                      width: 28, height: 28, borderRadius: 10, flexShrink: 0,
                       background: "var(--card2)", border: "1px solid var(--border)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 12, fontWeight: 700, color: "var(--text-muted)",
@@ -814,9 +814,9 @@ function Batches() {
                           disabled={startingBatchId === batch.id}
                           style={{
                             background: startingBatchId === batch.id ? "var(--card2)" : "#10b98118",
-                            border: `1px solid ${startingBatchId === batch.id ? "var(--border)" : "#10b981"}`,
-                            color: startingBatchId === batch.id ? "var(--text-muted)" : "#10b981",
-                            borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 600,
+                            border: `1px solid ${startingBatchId === batch.id ? "var(--border)" : "var(--success)"}`,
+                            color: startingBatchId === batch.id ? "var(--text-muted)" : "var(--success)",
+                            borderRadius: 10, padding: "4px 12px", fontSize: 12, fontWeight: 600,
                             cursor: startingBatchId === batch.id ? "not-allowed" : "pointer",
                             display: "flex", alignItems: "center", gap: 6, minWidth: 90, justifyContent: "center",
                           }}
@@ -825,7 +825,7 @@ function Batches() {
                             <>
                               <span style={{
                                 display: "inline-block", width: 10, height: 10,
-                                border: "2px solid var(--text-muted)", borderTopColor: "#10b981",
+                                border: "2px solid var(--text-muted)", borderTopColor: "var(--success)",
                                 borderRadius: "50%", animation: "spin 0.7s linear infinite",
                               }} />
                               Sending…
@@ -838,8 +838,8 @@ function Batches() {
                         <button
                           onClick={e => markComplete(batch.id, e)}
                           style={{
-                            background: "#2563eb18", border: "1px solid #2563eb",
-                            color: "#2563eb", borderRadius: 6, padding: "4px 10px",
+                            background: "#2563eb18", border: "1px solid var(--primary)",
+                            color: "var(--primary)", borderRadius: 10, padding: "4px 10px",
                             fontSize: 12, fontWeight: 600, cursor: "pointer",
                             whiteSpace: "nowrap",
                           }}
@@ -850,7 +850,7 @@ function Batches() {
                         onClick={e => { e.stopPropagation(); deleteBatch(batch.id) }}
                         style={{
                           background: "none", border: "1px solid var(--border)",
-                          color: "var(--text-muted)", borderRadius: 6, padding: "4px 10px",
+                          color: "var(--text-muted)", borderRadius: 10, padding: "4px 10px",
                           fontSize: 12, cursor: "pointer",
                         }}
                       >Delete</button>
@@ -865,10 +865,10 @@ function Batches() {
                       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Summary</div>
                       <div style={{ display: "flex", gap: 24, marginBottom: 16 }}>
                         {[
-                          { label: "Total",     value: summary.total,     color: "#64748b" },
-                          { label: "Completed", value: summary.completed, color: "#10b981" },
-                          { label: "Queued",    value: summary.queued,    color: "#f59e0b" },
-                          { label: "Failed",    value: summary.failed,    color: "#ef4444" },
+                          { label: "Total",     value: summary.total,     color: "var(--secondary)" },
+                          { label: "Completed", value: summary.completed, color: "var(--success)" },
+                          { label: "Queued",    value: summary.queued,    color: "var(--warning)" },
+                          { label: "Failed",    value: summary.failed,    color: "var(--danger)" },
                           { label: "Skipped",   value: summary.skipped,   color: "#8b5cf6" },
                         ].map(({ label, value, color }) => (
                           <div key={label} style={{ textAlign: "center" }}>
@@ -892,12 +892,12 @@ function Batches() {
                             <div key={p.job_id} style={{
                               display: "flex", alignItems: "center", justifyContent: "space-between",
                               background: "var(--card)", border: "1px solid var(--border)",
-                              borderRadius: 7, padding: "8px 14px",
+                              borderRadius: 10, padding: "8px 14px",
                             }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{p.printer_name}</span>
                                 {p.progress !== null && (
-                                  <span style={{ fontSize: 11, color: "#10b981" }}>{p.progress.toFixed(1)}%</span>
+                                  <span style={{ fontSize: 11, color: "var(--success)" }}>{p.progress.toFixed(1)}%</span>
                                 )}
                               </div>
                               <JobStatusPill status={p.job_status} />
@@ -957,11 +957,11 @@ function Batches() {
                 completedBatches.map(batch => (
                   <div key={batch.id} style={{
                     background: "var(--card)", border: "1px solid var(--border)",
-                    borderRadius: 8, padding: "12px 18px",
+                    borderRadius: 10, padding: "12px 18px",
                     display: "flex", alignItems: "center", gap: 14, opacity: 0.75,
                   }}>
                     <div style={{
-                      width: 26, height: 26, borderRadius: 6, flexShrink: 0,
+                      width: 26, height: 26, borderRadius: 10, flexShrink: 0,
                       background: "var(--card2)", border: "1px solid var(--border)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 11, fontWeight: 700, color: "var(--text-dim)",

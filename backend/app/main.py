@@ -40,6 +40,7 @@ def run_migrations():
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS filament_detected BOOLEAN",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS mainboard_id VARCHAR",
         "ALTER TABLE printers ADD COLUMN IF NOT EXISTS light_on BOOLEAN",
+        "ALTER TABLE batches ALTER COLUMN file_id DROP NOT NULL",
         "ALTER TABLE batches ADD COLUMN IF NOT EXISTS name VARCHAR",
         "ALTER TABLE batches ADD COLUMN IF NOT EXISTS archived BOOLEAN DEFAULT FALSE",
         # Clear stale filenames on offline printers at startup
@@ -145,9 +146,28 @@ if os.path.exists(FRONTEND_DIST):
     # This catch-all only fires for paths that no API route matched.
     # Frontend routes (/manage/printers, /manage/users, /batches, /history etc.)
     # are deliberately chosen to NOT start with any API prefix so there's
-    # zero ambiguity. Just serve index.html for everything that gets here.
+    # zero ambiguity.
+    #
+    # BUG (confirmed, fixed): only "/assets/*" (the JS/CSS bundle folder)
+    # was ever mounted as static files. Everything Vite copies to the
+    # ROOT of frontend/dist from frontend/public/ -- favicon.ico,
+    # manifest.json, apple-touch-icon.png, and now login-bg.mp4 -- has no
+    # dedicated route, so every single request for one of those files was
+    # falling straight through to this catch-all and getting index.html's
+    # bytes back instead of the real file. A <video> tag pointed at
+    # "/login-bg.mp4" was silently receiving an HTML document, which is
+    # exactly why the background video never played. Now we check for a
+    # real file at that path first, and only fall back to index.html
+    # (the actual SPA behavior) when nothing real exists there.
+    FRONTEND_DIST_ABS = os.path.abspath(FRONTEND_DIST)
+
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
+        requested = os.path.normpath(os.path.join(FRONTEND_DIST, full_path))
+        # path-traversal guard: resolved path must stay inside FRONTEND_DIST
+        if requested.startswith(FRONTEND_DIST_ABS) and os.path.isfile(requested):
+            return FileResponse(requested)
+
         index = os.path.join(FRONTEND_DIST, "index.html")
         if os.path.exists(index):
             return FileResponse(index)

@@ -94,15 +94,15 @@ export default function Files() {
         </div>
         {isAdmin && (
           <label style={{
-            background: uploading ? "var(--card2)" : "#2563eb",
+            background: uploading ? "var(--card2)" : "var(--primary)",
             border: "none", color: uploading ? "var(--text-muted)" : "#fff",
-            borderRadius: 7, padding: "7px 16px", fontSize: 13,
+            borderRadius: 10, padding: "7px 16px", fontSize: 13,
             fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
             display: "flex", alignItems: "center", gap: 8,
           }}>
             {uploading ? (
               <>
-                <span style={{ display:"inline-block",width:12,height:12,border:"2px solid #475569",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
+                <span style={{ display:"inline-block",width:12,height:12,border:"2px solid var(--border)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
                 Uploading…
               </>
             ) : "↑ Upload File"}
@@ -117,11 +117,11 @@ export default function Files() {
           <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Folders</div>
           {folders.map(f => (
             <div key={f.id} onClick={() => setSelectedFolder(f.id)} style={{
-              padding: "8px 10px", borderRadius: 6, cursor: "pointer", marginBottom: 3,
+              padding: "8px 10px", borderRadius: 10, cursor: "pointer", marginBottom: 3,
               fontSize: 13, fontWeight: selectedFolder === f.id ? 600 : 400,
               background: selectedFolder === f.id ? "#2563eb18" : "none",
               border: `1px solid ${selectedFolder === f.id ? "#2563eb44" : "transparent"}`,
-              color: selectedFolder === f.id ? "#2563eb" : "var(--text-muted)",
+              color: selectedFolder === f.id ? "var(--primary)" : "var(--text-muted)",
               transition: "all 0.15s",
             }}>{f.name}</div>
           ))}
@@ -129,7 +129,7 @@ export default function Files() {
         </div>
 
         {/* Files table */}
-        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           {/* Header */}
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 80px 80px",
@@ -169,8 +169,8 @@ export default function Files() {
                       onClick={() => deleteFile(file.id, file.original_name)}
                       disabled={deletingId === file.id}
                       style={{
-                        background: "none", border: "1px solid #ef4444", color: "#ef4444",
-                        borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                        background: "none", border: "1px solid var(--danger)", color: "var(--danger)",
+                        borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600,
                         cursor: deletingId === file.id ? "not-allowed" : "pointer",
                         opacity: deletingId === file.id ? 0.5 : 1,
                       }}

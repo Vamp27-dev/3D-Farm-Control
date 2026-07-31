@@ -84,7 +84,7 @@ export default function AddPrinterModal({ onClose, onAdded }: {
               style={{
                 width: "100%", padding: "9px 12px",
                 background: "var(--card2)", border: "1px solid var(--border)",
-                borderRadius: 6, color: "var(--text)", fontSize: 14,
+                borderRadius: 10, color: "var(--text)", fontSize: 14,
                 boxSizing: "border-box", outline: "none",
               }}
             />
@@ -103,7 +103,7 @@ export default function AddPrinterModal({ onClose, onAdded }: {
             style={{
               width: "100%", padding: "9px 12px",
               background: "var(--card2)", border: "1px solid var(--border)",
-              borderRadius: 6, color: "var(--text)", fontSize: 14,
+              borderRadius: 10, color: "var(--text)", fontSize: 14,
               boxSizing: "border-box", outline: "none",
             }}
           />
@@ -116,7 +116,7 @@ export default function AddPrinterModal({ onClose, onAdded }: {
           <select value={type} onChange={e => setType(e.target.value)} style={{
             width: "100%", padding: "9px 12px",
             background: "var(--card2)", border: "1px solid var(--border)",
-            borderRadius: 6, color: "var(--text)", fontSize: 14, cursor: "pointer",
+            borderRadius: 10, color: "var(--text)", fontSize: 14, cursor: "pointer",
           }}>
             <option value="klipper">Neptune (Klipper / Moonraker)</option>
             <option value="centauri">Centauri Carbon</option>
@@ -126,13 +126,13 @@ export default function AddPrinterModal({ onClose, onAdded }: {
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onClose} style={{
             flex: 1, padding: "9px 0", background: "none",
-            border: "1px solid var(--border)", borderRadius: 6,
+            border: "1px solid var(--border)", borderRadius: 10,
             color: "var(--text-muted)", cursor: "pointer", fontSize: 13, fontWeight: 500,
           }}>Cancel</button>
           <button onClick={submit} disabled={loading} style={{
             flex: 2, padding: "9px 0",
-            background: loading ? "var(--card2)" : "#2563eb",
-            border: "none", borderRadius: 6,
+            background: loading ? "var(--card2)" : "var(--primary)",
+            border: "none", borderRadius: 10,
             color: loading ? "var(--text-muted)" : "#fff",
             cursor: loading ? "not-allowed" : "pointer",
             fontWeight: 600, fontSize: 13,

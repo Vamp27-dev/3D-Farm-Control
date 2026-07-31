@@ -7,8 +7,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || ""
 interface UserItem { id: number; username: string; role: string }
 
 const ROLE_CFG = {
-  admin:  { color: "#f59e0b", bg: "#f59e0b18", label: "Admin",  desc: "Full access — manage printers, users, files, batches" },
-  viewer: { color: "#3b82f6", bg: "#3b82f618", label: "Viewer", desc: "Can view dashboard and create batches — no delete/settings" },
+  admin:  { color: "var(--warning)", bg: "#f59e0b18", label: "Admin",  desc: "Full access — manage printers, users, files, batches" },
+  viewer: { color: "var(--primary)", bg: "#3b82f618", label: "Viewer", desc: "Can view dashboard and create batches — no delete/settings" },
 }
 
 // ─── User Form Modal ──────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ function UserModal({
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60,
     }}>
       <div style={{
-        background: "var(--card)", border: "1px solid #1e3a5f",
+        background: "var(--card)", border: "1px solid var(--border)",
         borderRadius: 12, padding: 28, width: 400,
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
@@ -84,7 +84,7 @@ function UserModal({
             placeholder="e.g. john_operator"
             style={{
               width:"100%",padding:"8px 12px",background:"var(--card2)",
-              border:"1px solid #1e293b",borderRadius:6,color:"var(--text)",
+              border:"1px solid var(--border)",borderRadius: 10,color:"var(--text)",
               fontSize:14,boxSizing:"border-box",outline:"none",
             }} />
         </div>
@@ -98,7 +98,7 @@ function UserModal({
             type="password" placeholder={isEdit ? "••••••••" : "Min 6 characters"}
             style={{
               width:"100%",padding:"8px 12px",background:"var(--card2)",
-              border:"1px solid #1e293b",borderRadius:6,color:"var(--text)",
+              border:"1px solid var(--border)",borderRadius: 10,color:"var(--text)",
               fontSize:14,boxSizing:"border-box",outline:"none",
             }} />
         </div>
@@ -114,9 +114,9 @@ function UserModal({
               const sel = role === r
               return (
                 <div key={r} onClick={() => setRole(r)} style={{
-                  flex:1, padding:"12px 14px", borderRadius:8, cursor:"pointer",
+                  flex:1, padding:"12px 14px", borderRadius: 10, cursor:"pointer",
                   background: sel ? cfg.bg : "var(--card2)",
-                  border:`1px solid ${sel ? cfg.color : "#1e293b"}`,
+                  border:`1px solid ${sel ? cfg.color : "var(--border)"}`,
                   transition:"all 0.15s",
                 }}>
                   <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:4 }}>
@@ -125,7 +125,7 @@ function UserModal({
                       border:`2px solid ${sel ? cfg.color : "var(--text-dim)"}`,
                       background: sel ? cfg.color : "none",
                     }} />
-                    <span style={{ fontSize:13,fontWeight:600,color: sel ? cfg.color : "#64748b" }}>
+                    <span style={{ fontSize:13,fontWeight:600,color: sel ? cfg.color : "var(--secondary)" }}>
                       {cfg.label}
                     </span>
                   </div>
@@ -138,22 +138,22 @@ function UserModal({
 
         {error && (
           <div style={{
-            background:"#ef444415",border:"1px solid #ef4444",
-            borderRadius:6,padding:"8px 12px",marginBottom:14,
-            fontSize:12,color:"#ef4444",
+            background:"#ef444415",border:"1px solid var(--danger)",
+            borderRadius: 10,padding:"8px 12px",marginBottom:14,
+            fontSize:12,color:"var(--danger)",
           }}>{error}</div>
         )}
 
         <div style={{ display:"flex",gap:10 }}>
           <button onClick={onClose} style={{
             flex:1,padding:"8px 0",background:"none",
-            border:"1px solid #1e293b",borderRadius:6,
-            color:"#64748b",cursor:"pointer",fontSize:13,
+            border:"1px solid var(--border)",borderRadius: 10,
+            color:"var(--secondary)",cursor:"pointer",fontSize:13,
           }}>Cancel</button>
           <button onClick={save} disabled={loading} style={{
             flex:2,padding:"8px 0",
-            background: loading ? "var(--card2)" : "#10b981",
-            border:"none",borderRadius:6,
+            background: loading ? "var(--card2)" : "var(--success)",
+            border:"none",borderRadius: 10,
             color: loading ? "var(--text-dim)" : "#fff",
             cursor: loading ? "not-allowed":"pointer",
             fontWeight:600,fontSize:13,
@@ -169,7 +169,7 @@ function UserModal({
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
-  const cfg = ROLE_CFG[role as keyof typeof ROLE_CFG] ?? { color:"#64748b", bg:"#64748b18", label: role }
+  const cfg = ROLE_CFG[role as keyof typeof ROLE_CFG] ?? { color:"var(--secondary)", bg:"#64748b18", label: role }
   return (
     <span style={{
       background:cfg.bg, color:cfg.color,
@@ -228,8 +228,8 @@ export default function UserManagement() {
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{users.length} users</span>
         </div>
         <button onClick={() => { setEditTarget(null); setShowModal(true) }} style={{
-          background: "#10b981", border: "none", color: "#fff",
-          borderRadius: 7, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          background: "var(--success)", border: "none", color: "#fff",
+          borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
         }}>+ Create User</button>
       </div>
 
@@ -237,9 +237,9 @@ export default function UserManagement() {
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
           {[
-            { label: "Total Users", value: users.length, accent: "#4a6080" },
-            { label: "Admins",      value: admins,        accent: "#f59e0b" },
-            { label: "Viewers",     value: viewers,       accent: "#2563eb" },
+            { label: "Total Users", value: users.length, accent: "var(--text-dim)" },
+            { label: "Admins",      value: admins,        accent: "var(--warning)" },
+            { label: "Viewers",     value: viewers,       accent: "var(--primary)" },
           ].map(({ label, value, accent }) => (
             <div key={label} style={{ background: "var(--card)", borderRadius: 10, padding: "14px 18px", border: "1px solid var(--border)", borderTop: `2px solid ${accent}` }}>
               <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
@@ -259,7 +259,7 @@ export default function UserManagement() {
         </div>
 
         {/* Table */}
-        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden" }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 1fr 130px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
@@ -298,12 +298,12 @@ export default function UserManagement() {
                 <div><RoleBadge role={u.role} /></div>
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   <button onClick={() => { setEditTarget(u); setShowModal(true) }} style={{
-                    background: "#2563eb18", border: "1px solid #2563eb", color: "#2563eb",
-                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+                    borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>Edit</button>
                   <button onClick={() => deleteUser(u)} disabled={deletingId === u.id} style={{
-                    background: "none", border: "1px solid #ef4444", color: "#ef4444",
-                    borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600,
+                    background: "none", border: "1px solid var(--danger)", color: "var(--danger)",
+                    borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600,
                     cursor: deletingId === u.id ? "not-allowed" : "pointer",
                     opacity: deletingId === u.id ? 0.5 : 1,
                   }}>{deletingId === u.id ? "…" : "Delete"}</button>
