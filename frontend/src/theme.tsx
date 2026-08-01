@@ -27,9 +27,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("theme", theme)
   }, [theme])
 
-  // ✅ UNCHANGED — Telegram-style circular reveal, expands outward from the
-  // toggle button. Kept exactly as-is across every retheme in this project;
-  // only the token values underneath it change.
+  // ✅ UNCHANGED across every retheme in this project — Telegram-style
+  // circular reveal, expands outward from the toggle button.
   const toggle = (originX?: number, originY?: number) => {
     const next = theme === "dark" ? "light" : "dark"
     const supportsViewTransitions = "startViewTransition" in document
@@ -45,7 +44,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty("--reveal-x", `${x}px`)
     document.documentElement.style.setProperty("--reveal-y", `${y}px`)
 
-    // @ts-ignore — View Transitions API, not yet in TS lib fully
+    // @ts-ignore — View Transitions API
     document.startViewTransition(() => {
       setTheme(next)
       applyVars(next)
@@ -62,98 +61,116 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 export const useTheme = () => useContext(ThemeContext)
 
 // ══════════════════════════════════════════════════════════════════════════
-// DESIGN TOKENS — matching the reference (Jidox admin template) frame-by-
-// frame color extraction, not eyeballed:
-//   sidebar dark surface   #323945 / #2d323c
-//   primary indigo         #434db5
-//   primary gradient       #434db5 → #7d4dbf  (indigo -> violet, sampled
-//                           directly off the active sidebar nav pill)
-//   success (teal)         #22b196
-//   warning (amber)        #f7c613
-//   danger (red)           #e7343a
-//   info (sky blue)        #32a0ef
+// INDUSTRIAL DESIGN TOKENS
+// Dark palette is exact per spec (#11151B / #171B22 / #20262F, status
+// colors below). Color is reserved for machine status ONLY — everything
+// else (buttons, active nav, borders) is neutral. No gradients, no glow.
 //
-// KEY DECISION (per explicit request — "same accent, same gradient, same
-// colour palette... for both dark and light theme"): the sidebar and the
-// five accent colors (primary/success/warning/danger/info) are IDENTICAL
-// between themes — only backgrounds/surfaces/borders/text shift. This
-// matches the reference exactly: every screenshot in the video has the
-// same dark indigo-slate sidebar regardless of whether the page content
-// itself is light or dark.
+// Status mapping onto this app's 4 printer states + alert levels:
+//   printing  -> Printing  #4FA3FF (blue)
+//   idle      -> Running   #2ECC71 (green)  — machine healthy, ready
+//   paused    -> Paused    #F5B041 (amber)
+//   offline   -> Offline   #7F8C8D (neutral gray, deliberately desaturated)
+//   error     -> Error     #E74C3C (red)    — hard fault
+//   warning   -> Warning   #FF8C42 (orange) — soft/non-fatal alert
+//
+// #4FA3FF also serves as the one neutral interactive accent (focus rings,
+// active nav indicator, links) since it reads as technical/desaturated
+// rather than "brand blue" — no separate purple/violet accent exists
+// anywhere in this system anymore.
 // ══════════════════════════════════════════════════════════════════════════
 
-const ACCENTS = {
-  "--primary":          "#434db5",
-  "--primary-2":        "#7d4dbf",   // gradient endpoint (indigo -> violet)
-  "--primary-hover":    "#3a4399",
-  "--success":          "#22b196",
-  "--warning":          "#f7c613",
-  "--danger":           "#e7343a",
-  "--danger-hover":     "#d42832",
-  "--info":             "#32a0ef",
-  "--accent":           "#32a0ef",
-  "--gradient-primary": "linear-gradient(135deg, #434db5 0%, #7d4dbf 100%)",
+const STATUS = {
+  "--running":   "#2ECC71",
+  "--printing":  "#4FA3FF",
+  "--paused":    "#F5B041",
+  "--warning":   "#FF8C42",
+  "--error":     "#E74C3C",
+  "--offline":   "#7F8C8D",
 
-  // ✅ Sidebar is permanently dark indigo-slate in BOTH themes (matches
-  // reference exactly — this is what "same styling for both themes" means
-  // in practice: the shell stays constant, the content area adapts).
-  "--sidebar":          "#2b303c",
-  "--sidebar-2":        "#323945",   // hover / nested surface within sidebar
-  "--sidebar-border":   "#3a4150",
-  "--sidebar-text":     "#a7adba",
-  "--sidebar-text-active": "#ffffff",
+  // Back-compat aliases used throughout the existing codebase
+  "--success":   "#2ECC71",
+  "--primary":   "#4FA3FF",
+  "--info":      "#4FA3FF",
+  "--danger":    "#E74C3C",
+  "--danger-hover": "#cf3a2e",
+  "--primary-hover": "#3a8fe0",
+  "--primary-2": "#4FA3FF",   // no second gradient stop anymore — flat
+  "--gradient-primary": "#4FA3FF",  // flat, NOT a gradient — kept as a
+                                     // token name only so nothing that
+                                     // still reads it breaks; every
+                                     // component was updated to stop
+                                     // treating it as a gradient string.
+  "--accent":    "#4FA3FF",
 }
 
 const DARK = {
-  ...ACCENTS,
-  "--bg":              "#1a1d27",
-  "--card":            "#232733",
-  "--card2":           "#2b303c",
-  "--border":          "#383e4c",
-  "--border-subtle":   "#2b303c",
-  "--text":            "#f1f1f5",
-  "--text-muted":      "#b0b4c2",
-  "--text-dim":        "#949bac",
-  "--hover":           "#2b303c",
+  ...STATUS,
+  "--bg":              "#11151B",
+  "--card":            "#171B22",
+  "--card2":           "#20262F",
+  "--border":          "rgba(255,255,255,0.07)",
+  "--border-subtle":   "rgba(255,255,255,0.05)",
+  "--text":            "#E7E9EC",
+  "--text-muted":      "#9AA1AC",
+  "--text-dim":        "#767E8A",
+  "--hover":           "#1c212a",
 
-  "--background":      "#1a1d27",
-  "--surface":          "#232733",
-  "--surface-secondary":"#2b303c",
-  "--header":           "#232733",
-  "--secondary":        "#94A3B8",
-  "--divider":          "#2b303c",
-  "--text-primary":     "#f1f1f5",
-  "--text-secondary":   "#b0b4c2",
-  "--text-muted-2":     "#949bac",
-  "--selected":         "#434db522",
-  "--disabled":         "#383e4c",
-  "--disabled-text":    "#6b7280",
+  "--background":      "#11151B",
+  "--surface":          "#171B22",
+  "--surface-secondary":"#20262F",
+  "--header":           "#171B22",
+  "--secondary":        "#9AA1AC",
+  "--divider":          "rgba(255,255,255,0.05)",
+  "--text-primary":     "#E7E9EC",
+  "--text-secondary":   "#9AA1AC",
+  "--text-muted-2":     "#767E8A",
+  "--selected":         "#4FA3FF1a",
+  "--disabled":         "#20262F",
+  "--disabled-text":    "#5c6370",
+
+  // Sidebar stays a touch deeper than the base surface — same neutral
+  // family, not a separate colorful panel.
+  "--sidebar":          "#14181F",
+  "--sidebar-2":        "#1b2028",
+  "--sidebar-border":   "rgba(255,255,255,0.06)",
+  "--sidebar-text":     "#8b93a0",
+  "--sidebar-text-active": "#F2F3F5",
 }
 
 const LIGHT = {
-  ...ACCENTS,
-  "--bg":              "#f3f2f8",
-  "--card":            "#ffffff",
-  "--card2":           "#f7f6fa",
-  "--border":          "#e7e5ee",
-  "--border-subtle":   "#f0eff5",
-  "--text":            "#242424",
-  "--text-muted":      "#6b7280",
-  "--text-dim":        "#9a9aa5",
-  "--hover":           "#f5f4fa",
+  ...STATUS,
+  "--bg":              "#F4F5F7",
+  "--card":            "#FFFFFF",
+  "--card2":           "#EDEFF2",
+  "--border":          "rgba(0,0,0,0.08)",
+  "--border-subtle":   "rgba(0,0,0,0.05)",
+  "--text":            "#181B20",
+  "--text-muted":      "#5B6270",
+  "--text-dim":        "#848B97",
+  "--hover":           "#EDEFF2",
 
-  "--background":      "#f3f2f8",
-  "--surface":          "#ffffff",
-  "--surface-secondary":"#f7f6fa",
-  "--header":           "#ffffff",
-  "--secondary":        "#64748B",
-  "--divider":          "#f0eff5",
-  "--text-primary":     "#242424",
-  "--text-secondary":   "#6b7280",
-  "--text-muted-2":     "#9a9aa5",
-  "--selected":         "#434db514",
-  "--disabled":         "#e7e5ee",
-  "--disabled-text":    "#9a9aa5",
+  "--background":      "#F4F5F7",
+  "--surface":          "#FFFFFF",
+  "--surface-secondary":"#EDEFF2",
+  "--header":           "#FFFFFF",
+  "--secondary":        "#5B6270",
+  "--divider":          "rgba(0,0,0,0.05)",
+  "--text-primary":     "#181B20",
+  "--text-secondary":   "#5B6270",
+  "--text-muted-2":     "#848B97",
+  "--selected":         "#4FA3FF14",
+  "--disabled":         "#EDEFF2",
+  "--disabled-text":    "#9aa1ac",
+
+  // Sidebar stays dark-neutral even in light mode — same panel, same
+  // status colors, only the content area brightens (matches the "same
+  // palette in both themes" requirement carried over from before).
+  "--sidebar":          "#181C24",
+  "--sidebar-2":        "#20262F",
+  "--sidebar-border":   "rgba(255,255,255,0.06)",
+  "--sidebar-text":     "#8b93a0",
+  "--sidebar-text-active": "#F2F3F5",
 }
 
 export function applyInitialTheme() {

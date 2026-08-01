@@ -95,7 +95,7 @@ export default function CentauriPrintOptionsModal({
                 style={{
                   flex: 1, padding: "10px 0", borderRadius: 10,
                   border: `1px solid ${plateType === opt.val ? "var(--primary)" : "var(--border)"}`,
-                  background: plateType === opt.val ? "#2563eb18" : "var(--card2)",
+                  background: plateType === opt.val ? "#4FA3FF18" : "var(--card2)",
                   color: plateType === opt.val ? "var(--primary)" : "var(--text)",
                   cursor: "pointer", fontSize: 13, fontWeight: 600,
                 }}

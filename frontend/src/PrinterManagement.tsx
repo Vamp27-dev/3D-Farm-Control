@@ -124,7 +124,7 @@ function EditPrinterModal({
 
         {error && (
           <div style={{
-            background: "#ef444415", border: "1px solid var(--danger)",
+            background: "#E74C3C15", border: "1px solid var(--danger)",
             borderRadius: 10, padding: "8px 12px", marginBottom: 14,
             fontSize: 12, color: "var(--danger)",
           }}>{error}</div>
@@ -307,7 +307,7 @@ export default function PrinterManagement() {
                 </div>
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   <button onClick={() => setEditing(printer)} style={{
-                    background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+                    background: "#4FA3FF18", border: "1px solid var(--primary)", color: "var(--primary)",
                     borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>Edit</button>
                   <button

@@ -40,7 +40,7 @@ function variantStyle(variant: ButtonVariant, disabled: boolean) {
   }
   switch (variant) {
     case "primary":
-      return { background: "var(--gradient-primary,linear-gradient(135deg,#434db5,#7d4dbf))", color: "#fff", border: "1px solid transparent" }
+      return { background: "var(--primary,#4FA3FF)", color: "#0d1117", border: "1px solid transparent" }
     case "secondary":
       return { background: "var(--card,#111827)", color: "var(--text,#F8FAFC)", border: "1px solid var(--border,#334155)" }
     case "outlined":

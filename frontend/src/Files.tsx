@@ -119,8 +119,8 @@ export default function Files() {
             <div key={f.id} onClick={() => setSelectedFolder(f.id)} style={{
               padding: "8px 10px", borderRadius: 10, cursor: "pointer", marginBottom: 3,
               fontSize: 13, fontWeight: selectedFolder === f.id ? 600 : 400,
-              background: selectedFolder === f.id ? "#2563eb18" : "none",
-              border: `1px solid ${selectedFolder === f.id ? "#2563eb44" : "transparent"}`,
+              background: selectedFolder === f.id ? "#4FA3FF18" : "none",
+              border: `1px solid ${selectedFolder === f.id ? "#4FA3FF44" : "transparent"}`,
               color: selectedFolder === f.id ? "var(--primary)" : "var(--text-muted)",
               transition: "all 0.15s",
             }}>{f.name}</div>

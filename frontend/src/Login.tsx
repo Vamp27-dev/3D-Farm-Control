@@ -13,7 +13,7 @@ const VIDEO_SRC = "/login-bg.mp4"
 // Echoes the "Farm Pulse bar" already in the app's Sidebar — a row of tiny
 // printer-status lights, each pulsing at its own offset. Before you've even
 // logged in, it signals: this connects to a real, live, breathing farm.
-const PULSE_COLORS = ["#10b981", "#10b981", "#2563eb", "#10b981", "#f59e0b", "#10b981", "#2563eb", "#10b981"]
+const PULSE_COLORS = ["#2ECC71", "#2ECC71", "#4FA3FF", "#2ECC71", "#F5B041", "#2ECC71", "#4FA3FF", "#2ECC71"]
 
 function FarmPulseStrip({ reduceMotion }: { reduceMotion: boolean }) {
   return (
@@ -63,10 +63,10 @@ function TelemetryHUD({ reduceMotion }: { reduceMotion: boolean }) {
       userSelect: "none", pointerEvents: "none",
       opacity: 0.85,
     }} aria-hidden="true">
-      <div style={{ color: "#10b981", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ color: "#2ECC71", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{
-          width: 6, height: 6, borderRadius: "50%", background: "#10b981",
-          display: "inline-block", boxShadow: "0 0 6px #10b981",
+          width: 6, height: 6, borderRadius: "50%", background: "#2ECC71",
+          display: "inline-block", boxShadow: "0 0 6px #2ECC71",
           animation: reduceMotion ? "none" : "blink 1.6s ease-in-out infinite",
         }} />
         PRINTING
@@ -222,10 +222,10 @@ export default function Login() {
             </div>
             <div style={{
               width: 48, height: 48, borderRadius: 12,
-              background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+              background: "#4FA3FF",
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               fontSize: 22, marginBottom: 14,
-              boxShadow: "0 0 24px #2563eb44",
+              boxShadow: "0 0 24px #4FA3FF44",
             }}>🖨️</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9", marginBottom: 4, letterSpacing: -0.3 }}>
               Farm Controller
@@ -282,9 +282,9 @@ export default function Login() {
           {/* Error */}
           {showError && error && (
             <div style={{
-              background: "#ef444415", border: "1px solid #ef444444",
+              background: "#E74C3C15", border: "1px solid #E74C3C44",
               borderRadius: 8, padding: "10px 14px", marginBottom: 16,
-              fontSize: 13, color: "#ef4444",
+              fontSize: 13, color: "#E74C3C",
               display: "flex", alignItems: "center", gap: 8,
               animation: reduceMotion ? "none" : "shake 0.4s ease",
             }}>
@@ -299,9 +299,9 @@ export default function Login() {
             className="login-btn"
             style={{
               width: "100%", padding: "11px 0",
-              background: loading ? "#1a3a5c" : "linear-gradient(135deg, #2563eb, #1d4ed8)",
+              background: loading ? "#1a3a5c" : "#4FA3FF",
               border: "none", borderRadius: 8,
-              color: loading ? "#4a6080" : "#fff",
+              color: loading ? "#4a6080" : "#0d1117",
               fontSize: 14, fontWeight: 600,
               cursor: loading ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
@@ -312,7 +312,7 @@ export default function Login() {
               <>
                 <span style={{
                   display: "inline-block", width: 14, height: 14,
-                  border: "2px solid #4a6080", borderTopColor: "#2563eb",
+                  border: "2px solid #4a6080", borderTopColor: "#4FA3FF",
                   borderRadius: "50%", animation: "spin 0.7s linear infinite",
                 }} />
                 Signing in…
@@ -358,8 +358,8 @@ export default function Login() {
           transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
         }
         .login-input:focus {
-          border-color: #2563eb !important;
-          box-shadow: 0 0 0 3px #2563eb22;
+          border-color: #4FA3FF !important;
+          box-shadow: 0 0 0 3px #4FA3FF22;
           background: rgba(13, 30, 53, 0.95) !important;
         }
         .login-btn {
@@ -367,7 +367,7 @@ export default function Login() {
         }
         .login-btn:not(:disabled):hover {
           transform: translateY(-1px);
-          box-shadow: 0 8px 24px #2563eb55;
+          box-shadow: 0 8px 24px #4FA3FF55;
           filter: brightness(1.08);
         }
         .login-btn:not(:disabled):active {

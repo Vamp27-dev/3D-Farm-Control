@@ -7,8 +7,8 @@ const API_BASE = import.meta.env.VITE_API_BASE || ""
 interface UserItem { id: number; username: string; role: string }
 
 const ROLE_CFG = {
-  admin:  { color: "var(--warning)", bg: "#f59e0b18", label: "Admin",  desc: "Full access — manage printers, users, files, batches" },
-  viewer: { color: "var(--primary)", bg: "#3b82f618", label: "Viewer", desc: "Can view dashboard and create batches — no delete/settings" },
+  admin:  { color: "var(--warning)", bg: "#F5B04118", label: "Admin",  desc: "Full access — manage printers, users, files, batches" },
+  viewer: { color: "var(--primary)", bg: "#4FA3FF18", label: "Viewer", desc: "Can view dashboard and create batches — no delete/settings" },
 }
 
 // ─── User Form Modal ──────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ function UserModal({
 
         {error && (
           <div style={{
-            background:"#ef444415",border:"1px solid var(--danger)",
+            background:"#E74C3C15",border:"1px solid var(--danger)",
             borderRadius: 10,padding:"8px 12px",marginBottom:14,
             fontSize:12,color:"var(--danger)",
           }}>{error}</div>
@@ -169,7 +169,7 @@ function UserModal({
 // ─── Role Badge ───────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
-  const cfg = ROLE_CFG[role as keyof typeof ROLE_CFG] ?? { color:"var(--secondary)", bg:"#64748b18", label: role }
+  const cfg = ROLE_CFG[role as keyof typeof ROLE_CFG] ?? { color:"var(--secondary)", bg:"#7F8C8D18", label: role }
   return (
     <span style={{
       background:cfg.bg, color:cfg.color,
@@ -298,7 +298,7 @@ export default function UserManagement() {
                 <div><RoleBadge role={u.role} /></div>
                 <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                   <button onClick={() => { setEditTarget(u); setShowModal(true) }} style={{
-                    background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+                    background: "#4FA3FF18", border: "1px solid var(--primary)", color: "var(--primary)",
                     borderRadius: 10, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>Edit</button>
                   <button onClick={() => deleteUser(u)} disabled={deletingId === u.id} style={{

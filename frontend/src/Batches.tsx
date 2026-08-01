@@ -52,11 +52,11 @@ interface Folder {
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  completed: { bg: "#10b98118", color: "var(--success)" },
-  printing:  { bg: "#3b82f618", color: "var(--primary)" },
-  queued:    { bg: "#f59e0b18", color: "var(--warning)" },
-  empty:     { bg: "#64748b18", color: "var(--secondary)" },
-  unknown:   { bg: "#64748b18", color: "var(--secondary)" },
+  completed: { bg: "#2ECC7118", color: "var(--success)" },
+  printing:  { bg: "#4FA3FF18", color: "var(--primary)" },
+  queued:    { bg: "#F5B04118", color: "var(--warning)" },
+  empty:     { bg: "#7F8C8D18", color: "var(--secondary)" },
+  unknown:   { bg: "#7F8C8D18", color: "var(--secondary)" },
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -72,17 +72,17 @@ function StatusPill({ status }: { status: string }) {
 }
 
 const JOB_STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  printing:             { bg: "#10b98118", color: "var(--success)" },
-  completed:            { bg: "#10b98118", color: "var(--success)" },
-  queued:               { bg: "#f59e0b18", color: "var(--warning)" },
-  waiting_confirmation: { bg: "#f59e0b18", color: "var(--warning)" },
-  cancelled:            { bg: "#ef444418", color: "var(--danger)" },
-  failed:               { bg: "#ef444418", color: "var(--danger)" },
-  skipped:              { bg: "#8b5cf618", color: "#8b5cf6" },
+  printing:             { bg: "#2ECC7118", color: "var(--success)" },
+  completed:            { bg: "#2ECC7118", color: "var(--success)" },
+  queued:               { bg: "#F5B04118", color: "var(--warning)" },
+  waiting_confirmation: { bg: "#F5B04118", color: "var(--warning)" },
+  cancelled:            { bg: "#E74C3C18", color: "var(--danger)" },
+  failed:               { bg: "#E74C3C18", color: "var(--danger)" },
+  skipped:              { bg: "#4FA3FF18", color: "#4FA3FF" },
 }
 
 function JobStatusPill({ status }: { status: string }) {
-  const { bg, color } = JOB_STATUS_COLOR[status] ?? { bg: "#64748b18", color: "var(--secondary)" }
+  const { bg, color } = JOB_STATUS_COLOR[status] ?? { bg: "#7F8C8D18", color: "var(--secondary)" }
   return (
     <span style={{
       background: bg, color,
@@ -326,7 +326,7 @@ function CreateBatchModal({
                       <div key={f.id} onClick={() => setSelectedFile(f.id)} style={{
                         display: "flex", alignItems: "center", gap: 14,
                         padding: "12px 16px", borderRadius: 10,
-                        background: sel ? "#10b98112" : "var(--card2)",
+                        background: sel ? "#2ECC7112" : "var(--card2)",
                         border: `1px solid ${sel ? "var(--success)" : "var(--border)"}`,
                         cursor: "pointer", transition: "all 0.15s",
                       }}>
@@ -435,7 +435,7 @@ function CreateBatchModal({
                         <div key={p.id} onClick={() => togglePrinter(p.id)} style={{
                           display: "flex", alignItems: "center", gap: 12,
                           padding: "10px 14px", borderRadius: 10,
-                          background: sel ? "#10b98112" : "var(--card2)",
+                          background: sel ? "#2ECC7112" : "var(--card2)",
                           border: `1px solid ${sel ? "var(--success)" : "var(--border)"}`,
                           cursor: "pointer", transition: "all 0.15s",
                         }}>
@@ -813,7 +813,7 @@ function Batches() {
                           onClick={e => startBatchClick(batch, e)}
                           disabled={startingBatchId === batch.id}
                           style={{
-                            background: startingBatchId === batch.id ? "var(--card2)" : "#10b98118",
+                            background: startingBatchId === batch.id ? "var(--card2)" : "#2ECC7118",
                             border: `1px solid ${startingBatchId === batch.id ? "var(--border)" : "var(--success)"}`,
                             color: startingBatchId === batch.id ? "var(--text-muted)" : "var(--success)",
                             borderRadius: 10, padding: "4px 12px", fontSize: 12, fontWeight: 600,
@@ -838,7 +838,7 @@ function Batches() {
                         <button
                           onClick={e => markComplete(batch.id, e)}
                           style={{
-                            background: "#2563eb18", border: "1px solid var(--primary)",
+                            background: "#4FA3FF18", border: "1px solid var(--primary)",
                             color: "var(--primary)", borderRadius: 10, padding: "4px 10px",
                             fontSize: 12, fontWeight: 600, cursor: "pointer",
                             whiteSpace: "nowrap",
@@ -869,7 +869,7 @@ function Batches() {
                           { label: "Completed", value: summary.completed, color: "var(--success)" },
                           { label: "Queued",    value: summary.queued,    color: "var(--warning)" },
                           { label: "Failed",    value: summary.failed,    color: "var(--danger)" },
-                          { label: "Skipped",   value: summary.skipped,   color: "#8b5cf6" },
+                          { label: "Skipped",   value: summary.skipped,   color: "#4FA3FF" },
                         ].map(({ label, value, color }) => (
                           <div key={label} style={{ textAlign: "center" }}>
                             <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>

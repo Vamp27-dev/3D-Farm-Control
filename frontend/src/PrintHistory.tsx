@@ -20,9 +20,9 @@ function fmtDuration(sec: number | null) {
 }
 
 const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  success:   { bg: "#10b98118", color: "var(--success)" },
-  failed:    { bg: "#ef444418", color: "var(--danger)" },
-  cancelled: { bg: "#64748b18", color: "var(--secondary)" },
+  success:   { bg: "#2ECC7118", color: "var(--success)" },
+  failed:    { bg: "#E74C3C18", color: "var(--danger)" },
+  cancelled: { bg: "#7F8C8D18", color: "var(--secondary)" },
 }
 
 const LIMIT = 50
@@ -100,11 +100,11 @@ export default function PrintHistory() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setShowDeleteRange(v => !v)} style={{
-            background: "#ef444418", border: "1px solid var(--danger)", color: "var(--danger)",
+            background: "#E74C3C18", border: "1px solid var(--danger)", color: "var(--danger)",
             borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>🗑 Delete Range</button>
           <button onClick={exportCSV} style={{
-            background: "#2563eb18", border: "1px solid var(--primary)", color: "var(--primary)",
+            background: "#4FA3FF18", border: "1px solid var(--primary)", color: "var(--primary)",
             borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
           }}>↓ Export CSV</button>
         </div>
