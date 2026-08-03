@@ -115,19 +115,42 @@ const S = {
   sidebarTextActive: "var(--sidebar-text-active,#F2F3F5)",
 }
 
+// ─── Mobile detection ───────────────────────────────────────────────────────
+
+function useIsMobile(breakpoint = 860) {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < breakpoint : false
+  )
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [breakpoint])
+  return isMobile
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 const SB_COLLAPSED = 76
 const SB_EXPANDED  = 220
 
-function Sidebar({ printers, pinned, setPinned }: {
+function Sidebar({ printers, pinned, setPinned, isMobile, mobileOpen, onMobileClose }: {
   printers: Printer[]; pinned: boolean; setPinned: (v: boolean) => void
+  isMobile: boolean; mobileOpen: boolean; onMobileClose: () => void
 }) {
   const role     = getUserRole()
   const location = useLocation()
   const { theme, toggle } = useTheme()
   const [hovering, setHovering] = useState(false)
-  const expanded = pinned || hovering
+  // ✅ On mobile there's no hover-to-expand (no hover on touch) — it's a
+  // simple open/closed drawer, always full width when open.
+  const expanded = isMobile ? true : (pinned || hovering)
+
+  // Close the drawer automatically after navigating on mobile
+  useEffect(() => {
+    if (isMobile && mobileOpen) onMobileClose()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
 
   const printing = printers.filter(p => p.status === "printing").length
   const idle     = printers.filter(p => p.status === "idle").length
@@ -157,19 +180,34 @@ function Sidebar({ printers, pinned, setPinned }: {
   )
 
   return (
+    <>
+      {/* ✅ Backdrop — mobile only, tap to close the drawer */}
+      {isMobile && (
+        <div
+          onClick={onMobileClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 45,
+            background: "rgba(0,0,0,0.5)",
+            opacity: mobileOpen ? 1 : 0,
+            pointerEvents: mobileOpen ? "auto" : "none",
+            transition: "opacity 220ms ease",
+          }}
+        />
+      )}
     <div
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
+      onMouseEnter={() => { if (!isMobile) setHovering(true) }}
+      onMouseLeave={() => { if (!isMobile) setHovering(false) }}
       style={{
-        width: expanded ? SB_EXPANDED : SB_COLLAPSED,
+        width: isMobile ? SB_EXPANDED : (expanded ? SB_EXPANDED : SB_COLLAPSED),
         minHeight: "100vh", background: S.sidebar,
         borderRight: `1px solid ${S.sidebarBorder}`,
         display: "flex", flexDirection: "column",
         position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50,
         fontFamily: "'Inter', system-ui, sans-serif",
         overflow: "hidden",
-        transition: "width 260ms cubic-bezier(0.4,0,0.2,1), box-shadow 260ms ease",
-        boxShadow: (hovering && !pinned) ? "8px 0 32px rgba(0,0,0,0.35)" : "none",
+        transform: isMobile ? (mobileOpen ? "translateX(0)" : "translateX(-100%)") : "translateX(0)",
+        transition: "width 260ms cubic-bezier(0.4,0,0.2,1), box-shadow 260ms ease, transform 260ms cubic-bezier(0.4,0,0.2,1)",
+        boxShadow: isMobile ? (mobileOpen ? "8px 0 32px rgba(0,0,0,0.4)" : "none") : ((hovering && !pinned) ? "8px 0 32px rgba(0,0,0,0.35)" : "none"),
       }}
     >
       {/* Logo + pin toggle */}
@@ -189,8 +227,19 @@ function Sidebar({ printers, pinned, setPinned }: {
           {label("Farm Control", { display: "block", fontSize: 12.5, color: "#fff", fontWeight: 700, letterSpacing: 0.3 })}
           {label("3D Production Platform", { display: "block", fontSize: 9.5, color: S.sidebarText, marginTop: 1, letterSpacing: 0.2 })}
         </div>
-        {/* ✅ Pin toggle — flat neutral, no glow. Filled when pinned. */}
-        {expanded && (
+        {/* ✅ Pin toggle on desktop; close button on mobile (pinning is
+            meaningless for a drawer that's either open or closed). */}
+        {isMobile ? (
+          <button
+            onClick={onMobileClose}
+            style={{
+              width: 26, height: 26, borderRadius: 5, flexShrink: 0,
+              border: `1px solid ${S.sidebarBorder}`, background: "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", padding: 0, color: S.sidebarText,
+            }}
+          ><IconX size={13} strokeWidth={1.8} /></button>
+        ) : expanded && (
           <button
             onClick={() => setPinned(!pinned)}
             title={pinned ? "Unpin sidebar" : "Pin sidebar open"}
@@ -328,6 +377,7 @@ function Sidebar({ printers, pinned, setPinned }: {
         </button>
       </div>
     </div>
+    </>
   )
 }
 
@@ -400,6 +450,7 @@ function CameraSection({ url }: { url: string }) {
 function PrinterTray({ printer, onClose, onRefresh }: {
   printer: Printer; onClose: () => void; onRefresh: () => void
 }) {
+  const isMobile = useIsMobile()
   const [queue, setQueue]       = useState<QueueItem[]>([])
   const [loading, setLoading]   = useState(false)
 
@@ -499,9 +550,10 @@ function PrinterTray({ printer, onClose, onRefresh }: {
 
   return (
     <div style={{
-      position: "fixed", top: 0, right: 0, width: 360, height: "100vh",
-      background: S.card, borderLeft: `1px solid ${S.border}`,
-      zIndex: 50, display: "flex", flexDirection: "column",
+      position: "fixed", top: 0, right: 0,
+      width: isMobile ? "100%" : 360, height: "100vh",
+      background: S.card, borderLeft: isMobile ? "none" : `1px solid ${S.border}`,
+      zIndex: 55, display: "flex", flexDirection: "column",
       boxShadow: "-12px 0 40px rgba(0,0,0,0.5)",
       fontFamily: "'Inter', system-ui, sans-serif",
       animation: "tray-slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -982,15 +1034,58 @@ function AppShell({ children, printers }: {
   children: React.ReactNode; printers: Printer[]
 }) {
   const [pinned, setPinned] = useState(() => localStorage.getItem("sidebarPinned") === "1")
+  const isMobile = useIsMobile()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => {
     localStorage.setItem("sidebarPinned", pinned ? "1" : "0")
   }, [pinned])
 
+  // Lock page scroll while the mobile drawer is open
+  useEffect(() => {
+    if (isMobile) document.body.style.overflow = mobileOpen ? "hidden" : ""
+    return () => { document.body.style.overflow = "" }
+  }, [isMobile, mobileOpen])
+
   return (
     <div style={{ display:"flex", minHeight:"100vh", background:S.bg, fontFamily:"'Inter',system-ui,sans-serif" }}>
-      <Sidebar printers={printers} pinned={pinned} setPinned={setPinned} />
-      <div style={{ marginLeft: pinned ? 220 : 76, flex:1, minWidth:0, transition:"margin-left 260ms cubic-bezier(0.4,0,0.2,1)" }}>
+      <Sidebar
+        printers={printers} pinned={pinned} setPinned={setPinned}
+        isMobile={isMobile} mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)}
+      />
+      <div style={{
+        marginLeft: isMobile ? 0 : (pinned ? 220 : 76),
+        flex:1, minWidth:0, width: isMobile ? "100%" : undefined,
+        transition:"margin-left 260ms cubic-bezier(0.4,0,0.2,1)",
+      }}>
+        {/* ✅ Mobile-only top bar — the desktop sidebar is off-screen by
+            default on mobile, so this is the only way to reach it. */}
+        {isMobile && (
+          <div style={{
+            height: 52, background: S.sidebar, borderBottom: `1px solid ${S.sidebarBorder}`,
+            display: "flex", alignItems: "center", gap: 12, padding: "0 16px",
+            position: "sticky", top: 0, zIndex: 40,
+          }}>
+            <button
+              onClick={() => setMobileOpen(true)}
+              style={{
+                width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                background: "transparent", border: `1px solid ${S.sidebarBorder}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: S.sidebarText,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            </button>
+            <div style={{
+              width: 22, height: 22, borderRadius: 5, flexShrink: 0,
+              background: S.card2, border: `1px solid ${S.sidebarBorder}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: S.primary,
+            }}><IconPrinter size={12} strokeWidth={1.7} /></div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Farm Control</span>
+          </div>
+        )}
         {children}
       </div>
     </div>
@@ -1001,6 +1096,7 @@ function AppShell({ children, printers }: {
 
 function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinters: () => void }) {
   const role = getUserRole()
+  const isMobile = useIsMobile()
   const [analytics, setAnalytics]             = useState<Analytics | null>(null)
   const [selectedPrinter, setSelectedPrinter]   = useState<Printer | null>(null)
   const [showAddModal, setShowAddModal]         = useState(false)
@@ -1066,31 +1162,31 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
       {/* Top bar */}
       <div style={{
         height:56, borderBottom:`1px solid ${S.divider}`,
-        display:"flex",alignItems:"center",padding:"0 24px",
+        display:"flex",alignItems:"center",padding: isMobile ? "0 16px" : "0 24px",
         justifyContent:"space-between", background:S.card,
-        position:"sticky",top:0,zIndex:30,
+        position:"sticky",top: isMobile ? 52 : 0, zIndex:30,
       }}>
-        <div>
-          <div style={{ fontSize:15,fontWeight:700,color:S.text,letterSpacing:-0.1 }}>Production Overview</div>
-          <div style={{ fontSize:11.5,color:S.muted,marginTop:1 }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize: isMobile?13.5:15,fontWeight:700,color:S.text,letterSpacing:-0.1 }}>Production Overview</div>
+          <div style={{ fontSize:11.5,color:S.muted,marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             {printing > 0 ? `${printing} printer${printing>1?"s":""} active` : "All printers idle"}
           </div>
         </div>
         {role === "admin" && (
-          <Button variant="primary" onClick={()=>setShowAddModal(true)} leadingIcon={<IconPlus size={13} strokeWidth={2}/>}>
-            Add Printer
+          <Button variant="primary" size={isMobile?"sm":"md"} onClick={()=>setShowAddModal(true)} leadingIcon={<IconPlus size={13} strokeWidth={2}/>}>
+            {isMobile ? "Add" : "Add Printer"}
           </Button>
         )}
       </div>
 
-      <div style={{ position:"relative", zIndex:1, padding:"24px" }}>
+      <div style={{ position:"relative", zIndex:1, padding: isMobile ? "16px" : "24px" }}>
         {/* KPI row — dense control-panel style. Color appears ONLY on the
             metrics that represent actual machine status (thin left
             border); Fleet count and Success Rate stay fully neutral. */}
         <div style={{
           display:"grid",
-          gridTemplateColumns:"repeat(6,1fr)",
-          gap:10, marginBottom:24,
+          gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(6,1fr)",
+          gap:10, marginBottom: isMobile?16:24,
         }}>
           {[
             {label:"Fleet",         value:total,    accent:null,       icon:<IconDashboard size={13} strokeWidth={1.6}/>, sub:"printers"},
@@ -1118,8 +1214,8 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
         {/* Analytics row — general stats, kept fully neutral (not machine status) */}
         {analytics && (
           <div style={{
-            display:"grid",gridTemplateColumns:"repeat(3,1fr)",
-            gap:10,marginBottom:24,
+            display:"grid",gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)",
+            gap:10,marginBottom: isMobile?16:24,
           }}>
             {[
               {label:"Today's Prints",  value:analytics.today_prints, icon:<IconChart size={15} strokeWidth={1.6}/>},
@@ -1189,9 +1285,9 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
         {/* Printer grid */}
         <div style={{
           display:"grid",
-          gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(230px,1fr))",
           gap:10,
-          marginRight: selectedPrinter ? 376 : 0,
+          marginRight: (selectedPrinter && !isMobile) ? 376 : 0,
           transition:"margin-right 0.2s ease",
         }}>
           {visiblePrinters.map(printer => (
