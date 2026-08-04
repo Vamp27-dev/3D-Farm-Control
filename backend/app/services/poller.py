@@ -8,7 +8,7 @@ import requests
 from app.core.database import SessionLocal
 from app.models.printer import Printer
 from app.models.batch_printer import BatchPrinter
-from app.models.job_history import JobHistory
+from app.models.job_history import JobHistory, trim_job_history
 from app.models.batch import Batch
 
 
@@ -248,6 +248,7 @@ def write_history(db, printer, job, status: str):
         db.add(history)
         job.completed_at = completed_at
         printer.current_file = None
+        trim_job_history(db)   # ✅ auto-retention: keep only the most recent 100 entries
         print(f"[History] {printer.name} → {status} ({duration}s)")
     except Exception as e:
         print(f"[History] Failed to write history: {e}")

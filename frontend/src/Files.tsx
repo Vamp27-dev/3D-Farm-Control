@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { apiFetch } from "./App"
+import { apiFetch, useIsMobile } from "./App"
 import { getUserRole } from "./utils/auth"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -18,6 +18,7 @@ function formatSize(bytes: number) {
 export default function Files() {
   const role = getUserRole()
   const isAdmin = role === "admin"
+  const isMobile = useIsMobile()
   const [folders, setFolders]               = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<number | null>(null)
   const [files, setFiles]                   = useState<FileItem[]>([])
@@ -84,34 +85,40 @@ export default function Files() {
       {/* Top bar */}
       <div style={{
         height: 52, borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", padding: "0 28px",
+        display: "flex", alignItems: "center", padding: isMobile ? "0 16px" : "0 28px",
         justifyContent: "space-between", background: "var(--card)",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: isMobile ? 52 : 0, zIndex: 30,
       }}>
-        <div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>File Library</span>
+        <div style={{ minWidth: 0, overflow: "hidden" }}>
+          <span style={{ fontSize: isMobile?13.5:15, fontWeight: 700, color: "var(--text)" }}>File Library</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{files.length} files</span>
         </div>
         {isAdmin && (
           <label style={{
             background: uploading ? "var(--card2)" : "var(--primary)",
-            border: "none", color: uploading ? "var(--text-muted)" : "#fff",
-            borderRadius: 10, padding: "7px 16px", fontSize: 13,
+            border: "none", color: uploading ? "var(--text-muted)" : "#0d1117",
+            borderRadius: 10, padding: isMobile ? "7px 12px" : "7px 16px", fontSize: 13,
             fontWeight: 600, cursor: uploading ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", gap: 8,
+            display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+            whiteSpace: "nowrap",
           }}>
             {uploading ? (
               <>
-                <span style={{ display:"inline-block",width:12,height:12,border:"2px solid var(--border)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
-                Uploading…
+                <span style={{ display:"inline-block",width:12,height:12,border:"2px solid var(--border)",borderTopColor:"#0d1117",borderRadius:"50%",animation:"spin 0.7s linear infinite" }} />
+                {isMobile ? "…" : "Uploading…"}
               </>
-            ) : "↑ Upload File"}
+            ) : (isMobile ? "↑ Upload" : "↑ Upload File")}
             <input type="file" accept=".gcode,.3mf,.g,.gco" hidden onChange={uploadFile} disabled={uploading} />
           </label>
         )}
       </div>
 
-      <div style={{ padding: "24px 28px", display: "grid", gridTemplateColumns: "200px 1fr", gap: 16 }}>
+      <div style={{
+        padding: isMobile ? "16px" : "24px 28px",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "200px 1fr",
+        gap: 16,
+      }}>
         {/* Folders */}
         <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", padding: 16 }}>
           <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Folders</div>

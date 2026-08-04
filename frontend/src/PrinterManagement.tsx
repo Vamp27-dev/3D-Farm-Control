@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { apiFetch } from "./App"
+import { apiFetch, useIsMobile } from "./App"
 import { getUserRole } from "./utils/auth"
 import AddPrinterModal from "./AddPrinterModal"
 
@@ -89,7 +89,7 @@ function EditPrinterModal({
     }}>
       <div style={{
         background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 12, padding: 28, width: 380,
+        borderRadius: 12, padding: 28, width: "min(380px, 92vw)",
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -177,10 +177,12 @@ function StatusDot({ status }: { status: string }) {
 // ─── Printer Management Page ──────────────────────────────────────────────────
 
 export default function PrinterManagement() {
+  const isMobile = useIsMobile()
   const [printers, setPrinters]     = useState<Printer[]>([])
   const [editing, setEditing]       = useState<Printer | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [search, setSearch]         = useState("")
+  const [typeFilter, setTypeFilter] = useState<"all"|"klipper"|"centauri">("all")
   const [showAddModal, setShowAddModal] = useState(false)   // ✅ Add Printer modal toggle
   const role = getUserRole()
 
@@ -212,8 +214,8 @@ export default function PrinterManagement() {
   }
 
   const filtered = printers.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.ip_address.includes(search)
+    (p.name.toLowerCase().includes(search.toLowerCase()) || p.ip_address.includes(search)) &&
+    (typeFilter === "all" || p.type === typeFilter)
   )
 
   const total    = printers.length
@@ -224,34 +226,42 @@ export default function PrinterManagement() {
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
       {/* Top bar */}
       <div style={{
-        height: 52, borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", padding: "0 28px",
+        borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: isMobile ? "10px 16px" : "0 28px",
         justifyContent: "space-between", background: "var(--card)",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: isMobile ? 52 : 0, zIndex: 30,
+        flexWrap: isMobile ? "wrap" : "nowrap", gap: isMobile ? 10 : 0,
+        height: isMobile ? undefined : 52,
       }}>
-        <div>
-          <span style={{ fontSize: 15, fontWeight: 700 }}>Printer Management</span>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: isMobile?13.5:15, fontWeight: 700 }}>Printer Management</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{printers.length} printers</span>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", width: isMobile ? "100%" : undefined, flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or IP…"
-            style={{ padding: "6px 12px", borderRadius: 10, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: 200 }} />
+            style={{ padding: "6px 12px", borderRadius: 10, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", width: isMobile ? "100%" : 180, flex: isMobile ? "1 1 100%" : undefined }} />
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}
+            style={{ padding: "6px 10px", borderRadius: 10, fontSize: 12, background: "var(--card2)", border: "1px solid var(--border)", color: "var(--text)", outline: "none", cursor: "pointer", flex: isMobile ? 1 : undefined }}>
+            <option value="all">All Types</option>
+            <option value="klipper">Neptune</option>
+            <option value="centauri">Centauri</option>
+          </select>
           {/* ✅ Add Printer — admin only */}
           {role === "admin" && (
             <button onClick={() => setShowAddModal(true)} style={{
-              background: "var(--primary)", border: "none", color: "#fff",
+              background: "var(--primary)", border: "none", color: "#0d1117",
               borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
+              display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", flexShrink: 0,
             }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add Printer
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Printer"}
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "16px" : "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10, marginBottom: isMobile?16:24 }}>
           {[
             { label: "Total Printers", value: total,    accent: "var(--text-dim)" },
             { label: "Online",         value: online,   accent: "var(--success)" },
@@ -266,17 +276,19 @@ export default function PrinterManagement() {
 
         {/* Table */}
         <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div style={{ overflowX: isMobile ? "auto" : "visible" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "2fr 1.8fr 1fr 1fr 130px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
             fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
+            minWidth: isMobile ? 680 : undefined,
           }}>
             <div>Printer Name</div><div>IP Address</div><div>Type</div><div>Status</div><div style={{ textAlign: "right" }}>Actions</div>
           </div>
 
           {filtered.length === 0 ? (
             <div style={{ padding: "48px 0", textAlign: "center", color: "var(--text-dim)" }}>
-              {search ? "No printers match your search" : "No printers added yet"}
+              {(search || typeFilter !== "all") ? "No printers match your search/filter" : "No printers added yet"}
             </div>
           ) : (
             filtered.map((printer, idx) => (
@@ -285,6 +297,7 @@ export default function PrinterManagement() {
                 padding: "14px 20px", alignItems: "center",
                 borderBottom: idx < filtered.length - 1 ? "1px solid var(--border-subtle)" : "none",
                 transition: "background 0.1s",
+                minWidth: isMobile ? 680 : undefined,
               }}
                 onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -298,7 +311,7 @@ export default function PrinterManagement() {
                     {printer.ip_address}
                   </code>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>{printer.type}</div>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{printer.type === "klipper" ? "Neptune" : "Centauri"}</div>
                 <div>
                   <StatusDot status={printer.status} />
                   {printer.status === "printing" && (
@@ -327,6 +340,7 @@ export default function PrinterManagement() {
               </div>
             ))
           )}
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { toISTDate, timeAgo } from "./utils/date"
-import { apiFetch } from "./App"
+import { apiFetch, useIsMobile } from "./App"
 import CentauriPrintOptionsModal, { type CentauriPrintOptions } from "./CentauriPrintOptionsModal"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -217,7 +217,7 @@ function CreateBatchModal({
     }}>
       <div style={{
         background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 14, width: 520, maxHeight: "88vh",
+        borderRadius: 14, width: "min(520px, 92vw)", maxHeight: "88vh",
         display: "flex", flexDirection: "column",
         boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
       }}>
@@ -589,6 +589,7 @@ function CreateBatchModal({
 // ─── Batches Page ─────────────────────────────────────────────────────────────
 
 function Batches() {
+  const isMobile = useIsMobile()
   const [batches, setBatches]           = useState<Batch[]>([])
   const [showCreate, setShowCreate]     = useState(false)
   const [expandedId, setExpandedId]     = useState<number | null>(null)
@@ -723,24 +724,26 @@ function Batches() {
 
       {/* Top bar */}
       <div style={{
-        height: 52, borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", padding: "0 28px",
+        borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: isMobile ? "10px 16px" : "0 28px",
         justifyContent: "space-between", background: "var(--card)",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: isMobile ? 52 : 0, zIndex: 30,
+        height: isMobile ? undefined : 52, flexWrap: isMobile ? "wrap" : "nowrap", gap: isMobile ? 10 : 0,
       }}>
-        <div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Batch Management</span>
-          <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>Queue files to multiple printers</span>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: isMobile?13.5:15, fontWeight: 700, color: "var(--text)" }}>Batch Management</span>
+          {!isMobile && <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>Queue files to multiple printers</span>}
         </div>
         <button onClick={() => setShowCreate(true)} style={{
-          background: "var(--success)", border: "none", color: "#fff",
+          background: "var(--success)", border: "none", color: "#0d1117",
           borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          width: isMobile ? "100%" : undefined,
         }}>+ Create Batch</button>
       </div>
 
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "16px" : "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 10, marginBottom: isMobile?16:24 }}>
           {[
             { label: "Total Batches", value: batches.length, accent: "var(--text-dim)" },
             { label: "Printing",      value: printing,       accent: "var(--success)" },
@@ -779,13 +782,15 @@ function Batches() {
                   borderRadius: 10, overflow: "hidden",
                 }}>
                   <div style={{
-                    display: "flex", alignItems: "center", gap: 14,
+                    display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: 14,
                     padding: "14px 20px", cursor: "pointer",
+                    flexWrap: isMobile ? "wrap" : "nowrap",
                   }} onClick={() => toggleExpand(batch.id)}>
                     <div style={{
                       color: "var(--text-dim)", fontSize: 11,
                       transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
                       transition: "transform 0.2s", flexShrink: 0,
+                      marginTop: isMobile ? 3 : 0,
                     }}>▶</div>
                     {/* ✅ Serial number badge instead of raw DB id */}
                     <div style={{
@@ -794,8 +799,8 @@ function Batches() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 12, fontWeight: 700, color: "var(--text-muted)",
                     }}>#{batch.serial}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3 }}>
+                    <div style={{ flex: 1, minWidth: isMobile ? "calc(100% - 56px)" : 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{batch.name}</span>
                         <StatusPill status={batch.status} />
                       </div>
@@ -803,7 +808,13 @@ function Batches() {
                         {batch.file_name}
                       </div>
                     </div>
-                    <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      flexBasis: isMobile ? "100%" : "auto",
+                      marginLeft: isMobile ? 42 : 0, marginTop: isMobile ? 8 : 0,
+                      gap: 10,
+                    }}>
+                    <div style={{ flexShrink: 0, textAlign: isMobile ? "left" : "right" }}>
                       <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{timeAgo(batch.created_at)}</div>
                       <div style={{ fontSize: 10, color: "var(--text-dim)", marginTop: 2 }}>{toISTDate(batch.created_at)}</div>
                     </div>
@@ -855,15 +866,17 @@ function Batches() {
                         }}
                       >Delete</button>
                     </div>
+                    </div>
                   </div>
 
                   {isExpanded && summary && (
                     <div style={{
-                      borderTop: "1px solid var(--border)", padding: "12px 20px 14px 48px",
+                      borderTop: "1px solid var(--border)",
+                      padding: isMobile ? "12px 16px 14px" : "12px 20px 14px 48px",
                       background: "var(--card2)",
                     }}>
                       <div style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Summary</div>
-                      <div style={{ display: "flex", gap: 24, marginBottom: 16 }}>
+                      <div style={{ display: "flex", gap: isMobile ? 14 : 24, marginBottom: 16, flexWrap: "wrap" }}>
                         {[
                           { label: "Total",     value: summary.total,     color: "var(--secondary)" },
                           { label: "Completed", value: summary.completed, color: "var(--success)" },
@@ -959,6 +972,7 @@ function Batches() {
                     background: "var(--card)", border: "1px solid var(--border)",
                     borderRadius: 10, padding: "12px 18px",
                     display: "flex", alignItems: "center", gap: 14, opacity: 0.75,
+                    flexWrap: isMobile ? "wrap" : "nowrap",
                   }}>
                     <div style={{
                       width: 26, height: 26, borderRadius: 10, flexShrink: 0,
@@ -966,7 +980,7 @@ function Batches() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 11, fontWeight: 700, color: "var(--text-dim)",
                     }}>#{batch.serial}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: isMobile ? "100%" : 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)" }}>{batch.name}</div>
                       <div style={{ fontSize: 11, color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {batch.file_name}

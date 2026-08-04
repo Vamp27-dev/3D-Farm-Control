@@ -9,7 +9,7 @@ from typing import Optional
 import httpx
 
 from app.core.database import get_db
-from app.models.job_history import JobHistory
+from app.models.job_history import JobHistory, trim_job_history
 from app.models.printer import Printer
 from app.models.tag import Tag
 from app.models.batch_printer import BatchPrinter
@@ -285,6 +285,7 @@ async def cancel_print(printer_id: int, db: Session = Depends(get_db)):
             duration_seconds=duration,
         )
         db.add(history)
+        trim_job_history(db)   # ✅ auto-retention: keep only the most recent 100 entries
 
     printer.status       = "idle"
     printer.progress     = 0

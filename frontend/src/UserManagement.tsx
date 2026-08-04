@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { apiFetch } from "./App"
+import { apiFetch, useIsMobile } from "./App"
 
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
@@ -65,7 +65,7 @@ function UserModal({
     }}>
       <div style={{
         background: "var(--card)", border: "1px solid var(--border)",
-        borderRadius: 12, padding: 28, width: 400,
+        borderRadius: 12, padding: 28, width: "min(400px, 92vw)",
         boxShadow: "0 24px 64px rgba(0,0,0,0.7)",
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
@@ -183,6 +183,7 @@ function RoleBadge({ role }: { role: string }) {
 // ─── User Management Page ─────────────────────────────────────────────────────
 
 export default function UserManagement() {
+  const isMobile = useIsMobile()
   const [users, setUsers]         = useState<UserItem[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<UserItem | null>(null)
@@ -218,24 +219,26 @@ export default function UserManagement() {
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
       {/* Top bar */}
       <div style={{
-        height: 52, borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", padding: "0 28px",
+        borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: isMobile ? "10px 16px" : "0 28px",
         justifyContent: "space-between", background: "var(--card)",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: isMobile ? 52 : 0, zIndex: 30,
+        height: isMobile ? undefined : 52, flexWrap: isMobile ? "wrap" : "nowrap", gap: isMobile ? 10 : 0,
       }}>
-        <div>
-          <span style={{ fontSize: 15, fontWeight: 700 }}>User Management</span>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: isMobile?13.5:15, fontWeight: 700 }}>User Management</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{users.length} users</span>
         </div>
         <button onClick={() => { setEditTarget(null); setShowModal(true) }} style={{
-          background: "var(--success)", border: "none", color: "#fff",
+          background: "var(--success)", border: "none", color: "#0d1117",
           borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          width: isMobile ? "100%" : undefined,
         }}>+ Create User</button>
       </div>
 
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "16px" : "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 10, marginBottom: isMobile?16:24 }}>
           {[
             { label: "Total Users", value: users.length, accent: "var(--text-dim)" },
             { label: "Admins",      value: admins,        accent: "var(--warning)" },
@@ -249,7 +252,7 @@ export default function UserManagement() {
         </div>
 
         {/* Role legend */}
-        <div style={{ background: "var(--card)", borderRadius: 10, padding: "14px 20px", border: "1px solid var(--border)", marginBottom: 20, display: "flex", gap: 32 }}>
+        <div style={{ background: "var(--card)", borderRadius: 10, padding: "14px 20px", border: "1px solid var(--border)", marginBottom: 20, display: "flex", gap: isMobile?16:32, flexWrap: "wrap" }}>
           {Object.entries(ROLE_CFG).map(([r, cfg]) => (
             <div key={r} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
               <RoleBadge role={r} />
@@ -260,10 +263,12 @@ export default function UserManagement() {
 
         {/* Table */}
         <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div style={{ overflowX: isMobile ? "auto" : "visible" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "1fr 1fr 130px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
             fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
+            minWidth: isMobile ? 480 : undefined,
           }}>
             <div>Username</div><div>Role</div><div style={{ textAlign: "right" }}>Actions</div>
           </div>
@@ -273,6 +278,7 @@ export default function UserManagement() {
           ) : (
             users.map((u, idx) => (
               <div key={u.id} style={{
+                minWidth: isMobile ? 480 : undefined,
                 display: "grid", gridTemplateColumns: "1fr 1fr 130px",
                 padding: "14px 20px", alignItems: "center",
                 borderBottom: idx < users.length - 1 ? "1px solid var(--border-subtle)" : "none",
@@ -311,6 +317,7 @@ export default function UserManagement() {
               </div>
             ))
           )}
+          </div>
         </div>
       </div>
 

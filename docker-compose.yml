@@ -1,23 +1,34 @@
 version: "3.9"
 
-# ✅ All secrets below are read from a local .env file (git-ignored, never
-# committed) via ${VARIABLE} interpolation. See .env.example for the
-# template — copy it to .env and fill in real values before first run.
+# ✅ Secrets come from a local .env file (git-ignored, never committed).
+# `env_file:` below loads it EXPLICITLY per-service -- more reliable than
+# relying on Compose's implicit top-level .env auto-discovery, which is
+# sensitive to working directory and can silently fail. The ${VAR:-default}
+# fallbacks are a second safety net: if .env is missing/misnamed/empty,
+# the stack still starts with working (if insecure) defaults instead of
+# hard-crashing with "role \"-d\" does not exist" / "no password supplied"
+# -- both of which are what empty-string interpolation produces.
+#
+# See .env.example for the template. Copy it to .env in this same folder
+# before first run for the REAL values to take effect.
 
 services:
   postgres:
     image: postgres:13
     container_name: farm_postgres
     restart: always
+    env_file:
+      - path: .env
+        required: false
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-farmadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-farm123}
+      POSTGRES_DB: ${POSTGRES_DB:-elegoo_farm}
     # No ports exposed to host — backend talks to postgres internally
     volumes:
       - postgres_data:/var/lib/postgresql/data   # ✅ persist DB across restarts
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-farmadmin} -d ${POSTGRES_DB:-elegoo_farm}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -30,10 +41,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-farmadmin}:${POSTGRES_PASSWORD:-farm123}@postgres:5432/${POSTGRES_DB:-elegoo_farm}
       DEV_MODE: "${DEV_MODE:-true}"
-      SECRET_KEY: ${SECRET_KEY}
+      SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_IN_PRODUCTION_USE_ENV_VAR}
     ports:
       - "0.0.0.0:8000:8000"   # ✅ bind to ALL network interfaces
     volumes:

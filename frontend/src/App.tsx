@@ -117,7 +117,7 @@ const S = {
 
 // ─── Mobile detection ───────────────────────────────────────────────────────
 
-function useIsMobile(breakpoint = 860) {
+export function useIsMobile(breakpoint = 860) {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth < breakpoint : false
   )
@@ -1101,6 +1101,7 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
   const [selectedPrinter, setSelectedPrinter]   = useState<Printer | null>(null)
   const [showAddModal, setShowAddModal]         = useState(false)
   const [statusFilter, setStatusFilter]         = useState<string>("all") // ✅ filter state
+  const [typeFilter, setTypeFilter]             = useState<"all"|"klipper"|"centauri">("all") // ✅ Neptune/Centauri filter
 
   const selectedPrinterRef = useRef<Printer | null>(null)
   selectedPrinterRef.current = selectedPrinter
@@ -1151,10 +1152,10 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
     return (b.progress ?? 0) - (a.progress ?? 0)
   })
 
-  // ✅ Apply status filter
-  const visiblePrinters = statusFilter === "all"
-    ? sortedPrinters
-    : sortedPrinters.filter(p => p.status === statusFilter)
+  // ✅ Apply status + type filters together
+  const visiblePrinters = sortedPrinters
+    .filter(p => statusFilter === "all" || p.status === statusFilter)
+    .filter(p => typeFilter === "all" || p.type === typeFilter)
 
   return (
     <div style={{ position:"relative", minHeight:"100vh", background:S.bg, color:S.text }}>
@@ -1282,6 +1283,40 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
           })}
         </div>
 
+        {/* ✅ Type filter pills — Neptune / Centauri */}
+        <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+          <span style={{ fontSize:11, color:S.muted, textTransform:"uppercase", letterSpacing:1.2, marginRight:4, fontWeight:600 }}>Type</span>
+          {[
+            { label:"All",      value:"all" as const,      count: total },
+            { label:"Neptune",  value:"klipper" as const,  count: printers.filter(p=>p.type==="klipper").length },
+            { label:"Centauri", value:"centauri" as const, count: printers.filter(p=>p.type==="centauri").length },
+          ].map(({ label, value, count }) => {
+            const active = typeFilter === value
+            return (
+              <button key={value} onClick={() => {
+                setTypeFilter(value)
+                setSelectedPrinter(null)
+              }} style={{
+                padding:"5px 12px", borderRadius:6, fontSize:11.5, fontWeight:600,
+                cursor:"pointer", transition:"all 0.15s",
+                background: active ? `${S.primary}22` : S.card,
+                border: `1px solid ${active ? S.primary : S.border}`,
+                color: active ? S.primary : S.muted,
+                display:"flex", alignItems:"center", gap:6,
+              }}>
+                {label}
+                <span style={{
+                  fontSize:10, fontWeight:700,
+                  background: active ? `${S.primary}33` : S.card2,
+                  border:`1px solid ${active ? S.primary+"44" : S.border}`,
+                  borderRadius:10, padding:"1px 6px",
+                  color: active ? S.primary : S.muted,
+                }}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Printer grid */}
         <div style={{
           display:"grid",
@@ -1304,10 +1339,10 @@ function Dashboard({ printers, loadPrinters }: { printers: Printer[]; loadPrinte
             <div style={{gridColumn:"1/-1",textAlign:"center",padding:"60px 0",color:S.dim}}>
               <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}><IconSearch size={28} strokeWidth={1.4} /></div>
               <div style={{fontSize:15,color:S.muted}}>
-                No {statusFilter} printers
+                No printers match the current filters
               </div>
-              <Button variant="secondary" size="sm" style={{ marginTop:12 }} onClick={()=>setStatusFilter("all")}>
-                Clear filter
+              <Button variant="secondary" size="sm" style={{ marginTop:12 }} onClick={()=>{ setStatusFilter("all"); setTypeFilter("all") }}>
+                Clear filters
               </Button>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { toIST } from "./utils/date"
-import { apiFetch } from "./App"
+import { apiFetch, useIsMobile } from "./App"
 
 const API_BASE = import.meta.env.VITE_API_BASE || ""
 
@@ -28,18 +28,13 @@ const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
 const LIMIT = 50
 
 export default function PrintHistory() {
+  const isMobile = useIsMobile()
   const [items, setItems]     = useState<HistoryItem[]>([])
   const [total, setTotal]     = useState(0)
   const [offset, setOffset]   = useState(0)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter]   = useState<"all"|"success"|"failed"|"cancelled">("all")
   const [search, setSearch]   = useState("")
-
-  // ✅ Delete history by date range
-  const [showDeleteRange, setShowDeleteRange] = useState(false)
-  const [deleteStart, setDeleteStart]         = useState("")
-  const [deleteEnd, setDeleteEnd]             = useState("")
-  const [deleting, setDeleting]               = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -52,27 +47,6 @@ export default function PrintHistory() {
 
   const exportCSV = () => {
     window.open(`${API_BASE}/analytics/export/csv`, "_blank")
-  }
-
-  const deleteRange = async () => {
-    if (!deleteStart || !deleteEnd) { alert("Pick both a start and end date"); return }
-    if (deleteEnd < deleteStart) { alert("End date must be on or after start date"); return }
-    if (!confirm(
-      `Delete all print history from ${deleteStart} to ${deleteEnd} (inclusive)?\n\nThis cannot be undone.`
-    )) return
-
-    setDeleting(true)
-    const res = await apiFetch(
-      `/analytics/history?start_date=${deleteStart}&end_date=${deleteEnd}`,
-      { method: "DELETE" }
-    )
-    setDeleting(false)
-    if (res?.detail) { alert(res.detail); return }
-    alert(res?.message ?? "History deleted")
-    setShowDeleteRange(false)
-    setDeleteStart(""); setDeleteEnd("")
-    setOffset(0)
-    load()
   }
 
   const filtered = items.filter(i => {
@@ -89,66 +63,28 @@ export default function PrintHistory() {
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',system-ui,sans-serif" }}>
       {/* Top bar */}
       <div style={{
-        height: 52, borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", padding: "0 28px",
+        borderBottom: "1px solid var(--border)",
+        display: "flex", alignItems: "center", padding: isMobile ? "10px 16px" : "0 28px",
         justifyContent: "space-between", background: "var(--card)",
-        position: "sticky", top: 0, zIndex: 30,
+        position: "sticky", top: isMobile ? 52 : 0, zIndex: 30,
+        height: isMobile ? undefined : 52, flexWrap: isMobile ? "wrap" : "nowrap", gap: isMobile ? 10 : 0,
       }}>
-        <div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>Print History</span>
+        <div style={{ minWidth: 0 }}>
+          <span style={{ fontSize: isMobile?13.5:15, fontWeight: 700, color: "var(--text)" }}>Print History</span>
           <span style={{ fontSize: 12, color: "var(--text-muted)", marginLeft: 12 }}>{total} total jobs</span>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowDeleteRange(v => !v)} style={{
-            background: "#E74C3C18", border: "1px solid var(--danger)", color: "var(--danger)",
-            borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>🗑 Delete Range</button>
+        <div style={{ display: "flex", gap: 8, width: isMobile ? "100%" : undefined }}>
           <button onClick={exportCSV} style={{
             background: "#4FA3FF18", border: "1px solid var(--primary)", color: "var(--primary)",
             borderRadius: 10, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}>↓ Export CSV</button>
+            flex: isMobile ? 1 : undefined,
+          }}>{isMobile ? "↓ Export" : "↓ Export CSV"}</button>
         </div>
       </div>
 
-      {showDeleteRange && (
-        <div style={{
-          background: "var(--card)", borderBottom: "1px solid var(--border)",
-          padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-        }}>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Delete history from</span>
-          <input type="date" value={deleteStart} onChange={e => setDeleteStart(e.target.value)}
-            style={{
-              padding: "6px 10px", borderRadius: 10, fontSize: 13,
-              background: "var(--card2)", border: "1px solid var(--border)",
-              color: "var(--text)", outline: "none",
-            }}
-          />
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>to</span>
-          <input type="date" value={deleteEnd} onChange={e => setDeleteEnd(e.target.value)}
-            style={{
-              padding: "6px 10px", borderRadius: 10, fontSize: 13,
-              background: "var(--card2)", border: "1px solid var(--border)",
-              color: "var(--text)", outline: "none",
-            }}
-          />
-          <span style={{ fontSize: 11, color: "var(--text-dim)" }}>(inclusive, IST dates)</span>
-          <button onClick={deleteRange} disabled={deleting} style={{
-            padding: "6px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-            background: deleting ? "var(--card2)" : "var(--danger)",
-            border: "none", color: deleting ? "var(--text-muted)" : "#fff",
-            cursor: deleting ? "not-allowed" : "pointer",
-          }}>{deleting ? "Deleting…" : "Delete"}</button>
-          <button onClick={() => setShowDeleteRange(false)} style={{
-            padding: "6px 16px", borderRadius: 10, fontSize: 13,
-            background: "none", border: "1px solid var(--border)", color: "var(--text-muted)",
-            cursor: "pointer",
-          }}>Cancel</button>
-        </div>
-      )}
-
-      <div style={{ padding: "24px 28px" }}>
+      <div style={{ padding: isMobile ? "16px" : "24px 28px" }}>
         {/* KPIs */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 10, marginBottom: isMobile?16:24 }}>
           {[
             { label: "Total Jobs",  value: total,         accent: "var(--text-dim)" },
             { label: "Successful",  value: successCount,  accent: "var(--success)" },
@@ -172,7 +108,7 @@ export default function PrintHistory() {
               padding: "5px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer",
               background: filter === f ? "var(--primary)" : "var(--card)",
               border: `1px solid ${filter === f ? "var(--primary)" : "var(--border)"}`,
-              color: filter === f ? "#fff" : "var(--text-muted)",
+              color: filter === f ? "#0d1117" : "var(--text-muted)",
             }}>{f.charAt(0).toUpperCase()+f.slice(1)}</button>
           ))}
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -180,17 +116,19 @@ export default function PrintHistory() {
             style={{
               padding: "5px 14px", borderRadius: 20, fontSize: 12,
               background: "var(--card)", border: "1px solid var(--border)",
-              color: "var(--text)", outline: "none", width: 220,
+              color: "var(--text)", outline: "none", width: isMobile ? "100%" : 220,
             }}
           />
         </div>
 
         {/* Table */}
         <div style={{ background: "var(--card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <div style={{ overflowX: isMobile ? "auto" : "visible" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "50px 1.5fr 70px 1.3fr 1.3fr 90px 80px",
             padding: "10px 20px", borderBottom: "1px solid var(--border)",
             fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1.5,
+            minWidth: isMobile ? 760 : undefined,
           }}>
             <div>#</div><div>Printer</div><div>Batch</div>
             <div>Started (IST)</div><div>Completed (IST)</div><div>Duration</div><div>Status</div>
@@ -214,6 +152,7 @@ export default function PrintHistory() {
                   padding: "12px 20px", alignItems: "center",
                   borderBottom: idx < filtered.length - 1 ? "1px solid var(--border-subtle)" : "none",
                   transition: "background 0.1s",
+                  minWidth: isMobile ? 760 : undefined,
                 }}
                   onMouseEnter={e => (e.currentTarget.style.background = "var(--hover)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
@@ -234,6 +173,7 @@ export default function PrintHistory() {
               )
             })
           )}
+          </div>
         </div>
 
         {/* Pagination */}
