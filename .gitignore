@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════
-# SECRETS — never commit these
+# SECRETS — never commit these under any circumstances
 # ══════════════════════════════════════════════════════════════════════════
 .env
 .env.*
@@ -8,6 +8,19 @@
 *.key
 *_secret*
 secrets.json
+
+# ══════════════════════════════════════════════════════════════════════════
+# LICENSE TOOLS — the key-generation folder must NEVER go to GitHub.
+# These scripts live outside the repo (C:\Users\3dprinter\license-tools\)
+# but this rule is here as a safety net in case the folder is ever
+# accidentally moved or copied inside the repo.
+# ══════════════════════════════════════════════════════════════════════════
+license-tools/
+License_tools/
+license_tools/
+keygen.py
+generate_license.py
+private_key.pem
 
 # ══════════════════════════════════════════════════════════════════════════
 # Python / backend
@@ -27,14 +40,13 @@ env/
 node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.env
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
 # ══════════════════════════════════════════════════════════════════════════
-# Uploaded / generated data — printer gcode files, DB dumps, etc.
-# (These live in Docker named volumes in production and should never be
-# committed even if a local bind-mount version briefly appears.)
+# Docker / database — these live in named volumes, never in the repo folder
 # ══════════════════════════════════════════════════════════════════════════
 backend/storage/
 backend/app/storage/
@@ -44,6 +56,7 @@ uploads/
 *.sqlite
 *.sqlite3
 postgres_data/
+*.sql
 
 # ══════════════════════════════════════════════════════════════════════════
 # OS / editor clutter

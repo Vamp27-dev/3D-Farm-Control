@@ -1,11 +1,15 @@
+from datetime import date
+
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import asyncio
 
 from app.core.database import Base, engine, SessionLocal
 
 # Import ALL models (important for table creation)
-from app.models import printer, tag, batch, batch_printer, file, user, job_history
+from app.models import printer, tag, batch, batch_printer, file, user, job_history, license as license_model
 
 from app.services import centauri_service
 import threading
@@ -18,9 +22,11 @@ from app.routers import file as file_router
 from app.routers import analytics as analytics_router
 from app.routers import auth as auth_router
 from app.routers import users as users_router
+from app.routers import license as license_router
 
 from app.services.poller import start_poller
 from app.models.printer import Printer
+from app.models.license import LicenseState
 
 
 # ==========================
@@ -83,6 +89,47 @@ app.add_middleware(
 
 
 # ==========================
+# ✅ License gate
+# Blocks every real API route until this installation has an activated,
+# unexpired license. /license/* itself, /health, and static assets stay
+# open so the frontend can load and show the activation screen, and so
+# license_status()/activate() are reachable to unlock it.
+# Deliberately a PREFIX WHITELIST of gated routes rather than a
+# blacklist of exempt ones — anything new added later to a gated
+# router is automatically covered; anything genuinely new and public
+# needs an explicit add to GATED_PREFIXES to be locked, which is the
+# safer failure direction.
+# ==========================
+GATED_PREFIXES = ("/printers", "/batches", "/files", "/analytics", "/auth", "/users", "/tags")
+
+
+class LicenseGateMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+
+        if request.method == "OPTIONS" or not any(path.startswith(p) for p in GATED_PREFIXES):
+            return await call_next(request)
+
+        db = SessionLocal()
+        try:
+            state = db.query(LicenseState).first()
+            if not state or not state.licensed:
+                return JSONResponse(status_code=423, content={"detail": "This installation is not licensed."})
+            try:
+                if date.today() > date.fromisoformat(state.expires_at):
+                    return JSONResponse(status_code=423, content={"detail": "License has expired."})
+            except (TypeError, ValueError):
+                return JSONResponse(status_code=423, content={"detail": "Invalid license state."})
+        finally:
+            db.close()
+
+        return await call_next(request)
+
+
+app.add_middleware(LicenseGateMiddleware)
+
+
+# ==========================
 # Include routers
 # ==========================
 app.include_router(printer_router.router)
@@ -92,6 +139,7 @@ app.include_router(file_router.router)
 app.include_router(analytics_router.router)
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
+app.include_router(license_router.router)
 
 
 # ==========================
@@ -112,6 +160,18 @@ app.include_router(users_router.router)
 # ==========================
 @app.on_event("startup")
 def startup_event():
+    # Ensure a license_state row (and this install's machine_id) exists
+    # before anything else, so the activation screen always has an ID
+    # to show even before the first /license/status call.
+    db = SessionLocal()
+    try:
+        if not db.query(LicenseState).first():
+            import uuid
+            db.add(LicenseState(machine_id=str(uuid.uuid4()), licensed=False))
+            db.commit()
+    finally:
+        db.close()
+
     print("Starting background poller...")
     start_poller()
 
@@ -130,7 +190,6 @@ def health():
     return {"status": "ok", "message": "Farm Backend Running 🚀"}
 
 # ✅ Serve built frontend — works from ANY IP the server has
-# Both 192.168.11.x and 192.168.68.x users get the same app
 import os
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
