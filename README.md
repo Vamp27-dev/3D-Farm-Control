@@ -327,21 +327,6 @@ Keys are machine-bound — a key issued for one Machine ID will not activate on 
 
 ---
 
-## Deployment & Updates
-
-After any code change:
-
-```powershell
-# If you changed anything in frontend/src:
-cd frontend && npm run build && cd ..
-
-# Redeploy — safe, keeps all data
-docker-compose up --build -d
-```
-
-This rebuilds images and restarts containers while leaving the `postgres_data` and `file_storage` volumes untouched. Activation state survives a redeploy — you do not need to re-enter license keys after an update.
-
----
 
 ## Backups
 
