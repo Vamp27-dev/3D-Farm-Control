@@ -18,6 +18,48 @@ router = APIRouter(prefix="/batches", tags=["Batches"])
 
 TERMINAL_STATUSES = {"completed", "cancelled", "failed", "skipped"}
 
+# ✅ Max number of ARCHIVED (completed) batches kept on the Batches page's
+# "Completed Batches" dropdown. Once a new batch pushes the count past
+# this, the oldest archived batch(es) are deleted outright to keep that
+# list from growing forever.
+#
+# This is completely separate from the Print History / Analytics page --
+# that page reads from JobHistory, which is never touched by this limit,
+# so your printer success-rate stats and CSV export history are unaffected
+# no matter how many old batches get pruned here.
+BATCH_RETENTION_LIMIT = 100
+
+
+# ════════════════════════════════════════════════════════════════════
+# HELPER: prune old archived batches beyond BATCH_RETENTION_LIMIT
+# ════════════════════════════════════════════════════════════════════
+
+def enforce_batch_retention(db: Session, limit: int = BATCH_RETENTION_LIMIT):
+    """
+    Keeps only the most recent `limit` archived batches. Anything older
+    is deleted entirely (the Batch row + its BatchPrinter rows) -- same
+    cleanup delete_batch() does for a manual delete, just automatic.
+    JobHistory rows are intentionally left alone; Print History/Analytics
+    is a separate page and should keep every record regardless of how
+    many old batches get pruned here.
+    """
+    archived = (
+        db.query(Batch)
+        .filter(Batch.archived == True)
+        .order_by(Batch.id.asc())
+        .all()
+    )
+    excess = len(archived) - limit
+    if excess <= 0:
+        return
+
+    to_delete = archived[:excess]
+    for batch in to_delete:
+        db.query(BatchPrinter).filter(BatchPrinter.batch_id == batch.id).delete(synchronize_session=False)
+        db.delete(batch)
+    db.commit()
+    print(f"[Batch] Retention: pruned {excess} archived batch(es) beyond the {limit}-batch limit")
+
 
 # ════════════════════════════════════════════════════════════════════
 # HELPER: check if a batch is fully done, and archive it if so
@@ -42,6 +84,7 @@ def check_and_archive_batch(db: Session, batch_id: int):
         batch.archived = True
         db.commit()
         print(f"[Batch] #{batch_id} archived — all {len(jobs)} jobs finished")
+        enforce_batch_retention(db)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -56,7 +99,18 @@ def manually_complete_batch(batch_id: int, db: Session = Depends(get_db)):
     Useful when auto-archive didn't trigger (e.g. a job got stuck in
     'printing' state after the printer went offline mid-job, or the
     poller missed the completion event).
-    Also marks any still-'printing' jobs as 'completed' so history is clean.
+
+    ✅ FIX: this used to only resolve jobs stuck in "printing" to
+    "completed", silently leaving any job still in "queued" or
+    "waiting_confirmation" untouched. Those leftover BatchPrinter rows
+    kept matching GET /printers/{id}/queue's filter forever, so a
+    printer's tray would keep showing a batch's name as still-queued
+    even after the batch itself was marked complete and archived.
+    Now every non-terminal job status gets resolved, not just "printing":
+      - "printing"                       -> "completed"
+      - "queued" / "waiting_confirmation" -> "cancelled"
+        (it was never actually sent to the printer, so "cancelled" is
+        the accurate outcome, not "completed")
     """
     batch = db.query(Batch).filter(Batch.id == batch_id).first()
     if not batch:
@@ -67,14 +121,18 @@ def manually_complete_batch(batch_id: int, db: Session = Depends(get_db)):
 
     jobs = db.query(BatchPrinter).filter(BatchPrinter.batch_id == batch_id).all()
 
-    # Mark any stuck-in-printing jobs as completed
     for job in jobs:
         if job.status == "printing":
             job.status = "completed"
             job.completed_at = datetime.utcnow()
+        elif job.status in ("queued", "waiting_confirmation"):
+            job.status = "cancelled"
+            job.completed_at = datetime.utcnow()
 
     batch.archived = True
     db.commit()
+
+    enforce_batch_retention(db)
 
     return {"message": "Batch marked as completed", "batch_id": batch_id}
 
