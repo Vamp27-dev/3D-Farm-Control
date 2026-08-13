@@ -67,7 +67,23 @@ run_migrations()
 # ==========================
 # Create FastAPI app
 # ==========================
-app = FastAPI()
+import os
+
+# ✅ In production (DEV_MODE=false), FastAPI's auto-generated /docs,
+# /redoc, and /openapi.json are disabled entirely. By default these
+# expose every route -- including /license/activate and
+# /license/revoke -- with full request schemas and a "Try it out"
+# button, to anyone who visits the URL, no login and no frontend
+# button needed. There is no legitimate reason a client-facing
+# deployment needs this page live. Set DEV_MODE=true in your own .env
+# while developing locally if you want it back temporarily.
+_DEV_MODE = os.getenv("DEV_MODE", "false").lower() == "true"
+
+app = FastAPI(
+    docs_url="/docs" if _DEV_MODE else None,
+    redoc_url="/redoc" if _DEV_MODE else None,
+    openapi_url="/openapi.json" if _DEV_MODE else None,
+)
 
 
 # ==========================
@@ -110,16 +126,28 @@ class LicenseGateMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or not any(path.startswith(p) for p in GATED_PREFIXES):
             return await call_next(request)
 
+        from app.core.license import verify_license
+
         db = SessionLocal()
         try:
             state = db.query(LicenseState).first()
-            if not state or not state.licensed:
+            if not state or not state.license_key:
                 return JSONResponse(status_code=423, content={"detail": "This installation is not licensed."})
-            try:
-                if date.today() > date.fromisoformat(state.expires_at):
-                    return JSONResponse(status_code=423, content={"detail": "License has expired."})
-            except (TypeError, ValueError):
-                return JSONResponse(status_code=423, content={"detail": "Invalid license state."})
+
+            # Live re-verification, not a trusted static flag. This means:
+            #   - rotating your master key pair and redeploying a NEW
+            #     PUBLIC_KEY_HEX to this install instantly invalidates
+            #     its old stored key on the very next request
+            #   - POST /license/revoke clearing license_key takes effect
+            #     immediately, same request cycle, no restart needed
+            #   - an expiry date passing is caught the moment it passes,
+            #     not just next time someone happens to load /license/status
+            valid, reason, _payload = verify_license(state.license_key, state.machine_id)
+            if state.licensed != valid:
+                state.licensed = valid
+                db.commit()
+            if not valid:
+                return JSONResponse(status_code=423, content={"detail": reason})
         finally:
             db.close()
 
